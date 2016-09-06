@@ -1,0 +1,1 @@
+directory with gmap index

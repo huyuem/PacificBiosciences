@@ -1,0 +1,3 @@
+year,month,day,genome,tissue,treatment,size_bin,cell_path,barcode_path,barcode
+2016,8,26,hg19,XXX,LNA,0-10kb,/pbi/collections/311/RS_DATA_STAGING/2016-06-12_NGAT_LNA_Sequins_nonSS_3604/B01_1/,NA,NA
+2016,8,26,hg19,XXX,Control,0-10kb,/pbi/collections/311/RS_DATA_STAGING/2016-06-12_NGAT_LNA_Sequins_nonSS_3604/C01_1/,NA,NA
