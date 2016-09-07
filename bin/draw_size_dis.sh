@@ -37,8 +37,9 @@
 #################################################################################
 # author: Bo Han (bhan@pacb.com)
 
-# sizefile in the format of ${date}.${genome}.${tissue}.${treatment}.${sizebin}.isoseq_flnc.atrim.fa
-#                               1       2         3           4          5
+# sizefile in the format of 
+# ${date}.${genome}.${tissue}.${treatment}.${sizebin}.isoseq_flnc.atrim.fa
+#     1       2         3           4          5
 echo -e "genome\ttissue\ttreatment\tsizebin\tsize" > table/flnc_sizes.tsv
 for sizefile in "$@"; do
     awk -v name=${sizefile} 'BEGIN{FS=OFS="\t"; split(name,tokens,".")}{printf "%s\t%s\t%s\t%s\t%d\n", tokens[2], tokens[3], tokens[4], tokens[5], $2}' "${sizefile}" >> table/flnc_sizes.tsv

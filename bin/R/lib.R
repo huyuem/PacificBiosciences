@@ -37,17 +37,17 @@
 # author: Bo Han (bhan@pacb.com)
 
 # load the search path; use the local directory to ensure the user has permission to install packages
-.libPaths(c(paste(Sys.getenv ("PIPELINE_DIRECTORY"), "/bin/R/lib.R",sep=''), .libPaths()))
+.libPaths(c(.libPaths(), Sys.getenv("RLIBDIR")))
 
 # a function to install packages when it's not available
 # this function is modified from http://stackoverflow.com/questions/9341635/how-can-i-check-for-installed-r-packages-before-running-install-packages
 pkgTest = function(x) {
     if (!require(x, character.only = TRUE)) {
-        install.packages(x, dep=TRUE, lib=paste(Sys.getenv ("PIPELINE_DIRECTORY"), "Rlib", sep="/"), repos='http://cran.us.r-project.org')
+        install.packages(x, dep=TRUE, repos='http://cran.us.r-project.org')
         if(!require(x,character.only = TRUE)) {
             # try bioconductor if cannot install it from CRAN
             source("https://bioconductor.org/biocLite.R")
-            biocLite(x, ask=FALSE, lib.loc=paste(Sys.getenv ("PIPELINE_DIRECTORY"), "Rlib", sep="/"))
+            biocLite(x, ask=FALSE)
         }
         if(!require(x,character.only = TRUE)) {
             stop ("Failed to install the package. Please check the internet access or update your R if it is too old.")

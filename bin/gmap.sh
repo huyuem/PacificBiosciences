@@ -5,7 +5,8 @@ if [[ $# -lt 2 ]]; then
 	exit 1
 fi
 
-input=${1}
+inputfile=${1}
+inputname=$(basename ${inputfile})
 index_dir=${2}
 index_name=${3}
 threads=${4:-8}
@@ -34,8 +35,7 @@ gmap \
 	--suboptimal-score=1 \
 	-n 0 \
 	-z sense_force \
-	${input} \
+	${inputfile} \
 | samtools view -bS - \
-| samtools sort -f - \
-${input%f[aq]*}${index_name}.sorted.bam && \
-samtools index ${input%f[aq]*}${index_name}.sorted.bam
+| samtools sort -f - bam/${inputname%f[aq]*}${index_name}.sorted.bam \
+&& samtools index bam/${inputname%f[aq]*}${index_name}.sorted.bam

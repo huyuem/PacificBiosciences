@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-size: 1.5em;
+            font-family: "Helvetica Neue", Calibri, serif;
+        }
+        div.instruction {
+            font-size: .7em;
+        }
+        /*.xLabelName, .yLabelName {*/
+            /*font-size: .75em;*/
+        /*}*/
+
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #000;
+            shape-rendering: crispEdges;
+        }
+
+        .dot {
+            stroke: #000;
+        }
+
+        .tooltip {
+            position: absolute;
+            width: 325px;
+            height: 120px;
+            pointer-events: none;
+            background-color: beige;
+        }
+
+        .off {
+            display: none;
+        }
+
+        h2.pagetitle {
+            text-align: center;
+        }
+
+        table {
+            border-collapse: collapse;
+            border: 2px black solid;
+            font: 12px sans-serif;
+        }
+
+        td {
+            border: 1px black solid;
+            padding: 5px;
+        }
+
+        div#control_panel {
+            background-color: beige;
+        }
+
+        div#control_panel h5 {
+            margin: 0 0 0 0;
+        }
+
+        div#XYcontrol {
+            font-size: .8em;
+        }
+        
+        table {
+            font-size: .8em;
+        }
+
+        div p {
+            font-size: .7em;
+            margin: .5em 0 0 0;
+        }
+
+    </style>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+</head>
+
+<body>
+<h2 class="pagetitle">Scatter Plot for <span>mRNA</span> abundance</h2>
+<pre id="tsvdata" style="display: none">

@@ -37,6 +37,9 @@ print('declare -xa SampleCellPaths=({})'.format(
 print('declare -xa Treatments=({})'.format(
     ' '.join(["'" + row['treatment'] + "'" for sample, row in sample_info.items()])))
 
+print('declare -xa SizeBins=({})'.format(
+    ' '.join(["'" + row['size_bin'] + "'" for sample, row in sample_info.items()])))
+
 print('declare -xa BarcodeFiles=({})'.format(
     ' '.join(["'" + row['barcode_path'] + "'" for sample, row in sample_info.items()])))
 

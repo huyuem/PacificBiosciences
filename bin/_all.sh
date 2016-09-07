@@ -79,7 +79,10 @@ echo -e "${FONT_COLOR_RESET}"
 # Config #
 ##########
 declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' \
-                            'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize')
+                            'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'colmerge' \
+                            'bedToGenePred' 'genePredToGtf' "gffcompare" \
+                            'bam2wig.py' 'computeMatrix' 'computeMatrix' 'geneBody_coverage.py' \
+                            )
 
 #############################
 # ARGS reading and checking #
@@ -107,7 +110,7 @@ mkdir -p $OutputDir || echo2 "Don't have permission to create folder $OutputDir"
 cd $OutputDir || echo2 "Don't have permission to access folder $OutputDir" error
 ( touch a && rm -f a ) || echo2 "Don't have permission to write in folder $OutputDir" error
 
-mkdir -p log jobs fofn table pdf html
+mkdir -p log jobs jobout fasta bam gff fofn table pdf html
 
 for program in "${REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
 
@@ -122,9 +125,11 @@ source jobs/${JOBNAME}.sh
 
 echo2 "Submit jobs for CCS and Classify"
 declare gmap_job_ids=""
-declare -a flncfiles=()
-declare -a flncsizefiles=()
-declare -a genomebamfiles=()
+declare -xa flncfiles=()
+declare -xa flncsizefiles=()
+declare -xa genomebamfiles=()
+declare -xa genomegtffiles=()
+declare -xa transcriptomerefs=()
 for i in $(seq 0 $((SampleSize-1))); do
     declare samplename=${SampleNames[$i]}
     echo2 "Process ${samplename}"
@@ -137,13 +142,18 @@ for i in $(seq 0 $((SampleSize-1))); do
     [[ ! -f ${genomefa} ]] && echo2 "Cannot find genome fasta file ${genomefa}, please move it there or generate a symbol link" error
     declare genegff=${ANNOTATION_DIR}/${genome}.genes.gtf
     [[ ! -f ${genegff} ]] && echo2 "Cannot find transcriptome file ${genegff}, please move it there or generate a symbol link" error
-    
+    transcriptomerefs+=(${genegff})
     # build gmap index if not exist
-    declare gmapindex=${INDEX_DIR}/gmap_index/${genome}
-    if ! gmapIndexCheck ${INDEX_DIR}/gmap_index $genome; then
+    declare gmapindex=${GMAP_INDEX_DIR}/${genome}
+    if ! gmapIndexCheck ${GMAP_INDEX_DIR} $genome; then
         if [[ ! -f jobs/${genome}.gmapbuild.sh ]]; then
             echo2 "cannot find gmap index ${gmapindex}, submiting a job to generate it" warning
-            echo "gmap_build -d ${genome} -D ${INDEX_DIR}/gmap_index/ ${genomefa}" > jobs/${genome}.gmapbuild.sh
+            cat > jobs/${genome}.gmapbuild.sh << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+mkdir -p ${GMAP_INDEX_DIR}/${genome} \
+&& gmap_build -d ${genome} -D ${GMAP_INDEX_DIR} ${genomefa}
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
             declare gmap_build_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${genome}.gmapbuild < jobs/${genome}.gmapbuild.sh | cut -f3 -d' ')
         else # already jobs/${genome}.gmapbuild.sh file
             echo2 "cannot find gmap index ${gmapindex}, but looks like a job has been submit to generate it" warning
@@ -166,7 +176,7 @@ for i in $(seq 0 $((SampleSize-1))); do
         declare pbtrascript_option="--primer=${barcodefile}"
         declare -i total_barcode_number=$(grep '>' ${barcodefile} | wc -l)
         let total_barcode_number/=2 # barcode files are in pair
-        declare split_barcode_cmd="python ${MYBIN}/split_flnc_barcodes.py ${ccsname}.isoseq_flnc.fasta ${total_barcode_number}"
+        declare split_barcode_cmd="python ${MYBIN}/split_flnc_barcodes.py fasta/${ccsname}.isoseq_flnc.fasta ${total_barcode_number}"
     fi
 
     # 1. CCS
@@ -178,29 +188,28 @@ for i in $(seq 0 $((SampleSize-1))); do
         echo2 "Submit CCS and Classify job for ${ccsname}"
         # 1.2 genearte scripts to run CCS
         cat > jobs/${ccsname}.ccs.sh << EOF
-
-[[ ! -f ${ccsname}.isoseq_flnc.fasta ]] \
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+[[ ! -f fasta/${ccsname}.isoseq_flnc.fasta ]] \
 && $SMRT_HOME/smrtcmds/bin/smrtshell -c "ConsensusTools.sh CircularConsensus \
     --minFullPasses 0 \
     --minPredictedAccuracy 75 \
     --numThreads ${Threads} \
     --fofn fofn/${ccsname}.bax.fofn \
-    -o ${ccsname}.CCS " \
-&& cat ${ccsname}.CCS/*ccs.fasta > ${ccsname}.CCS.fa \
-&& ls ${ccsname}.CCS/*.ccs.h5 > ${ccsname}.reads_of_insert.fofn \
+    -o jobout/${ccsname}.CCS " \
+&& cat jobout/${ccsname}.CCS/*ccs.fasta > fasta/${ccsname}.CCS.fa \
 && $SMRT_HOME/smrtcmds/bin/smrtshell -c "pbtranscript.py classify \
     --cpus ${Threads} \
     --primer_search_window 200 \
     --min_dist_from_end 200 \
     --min_seq_len 300 \
     ${pbtrascript_option} \
-    --flnc ${ccsname}.isoseq_flnc.fasta \
-    --nfl ${ccsname}.isoseq_nfl.fasta \
-    -d ${ccsname}.classifyOut \
-    ${ccsname}.CCS.fa \
-    ${ccsname}.isoseq_draft.fasta" \
+    --flnc fasta/${ccsname}.isoseq_flnc.fasta \
+    --nfl fasta/${ccsname}.isoseq_nfl.fasta \
+    -d jobout/${ccsname}.classifyOut \
+    fasta/${ccsname}.CCS.fa \
+    fasta/${ccsname}.isoseq_draft.fasta" \
 && ${split_barcode_cmd}
-
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
         # 1.4 submit CCS script
         declare -i ccsclassify_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${ccsname}.CCS-classify < jobs/${ccsname}.ccs.sh | cut -f3 -d' ')
@@ -212,7 +221,14 @@ EOF
     fi
     # rename the file accoring to the barcode
     if [[ ${barcode_id} != 'NA' ]]; then
-        echo "mv ${ccsname}.isoseq_flnc.fasta.barcode${barcode_id} ${samplename}.isoseq_flnc.fasta" > jobs/${samplename}.rename.sh
+        cat > jobs/${samplename}.rename.sh << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+if [[ ! -f fasta/${samplename}.isoseq_flnc.fasta && -f fasta/${ccsname}.isoseq_flnc.fasta.barcode${barcode_id} ]]; then
+    mv fasta/${ccsname}.isoseq_flnc.fasta.barcode${barcode_id} fasta/${samplename}.isoseq_flnc.fasta
+fi
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
+
         declare -i rename_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.rename -hold_jid ${ccsclassify_jobid} < jobs/${samplename}.rename.sh | cut -f3 -d' ')
         declare gmap_ready=${gmap_build_jobid},${rename_jobid}
     else
@@ -222,29 +238,65 @@ EOF
     # 2. Run gmap alignemnt
     echo2 "Submit polyA trimming and gmap job"
     cat > jobs/${samplename}.gmap.sh << EOF
-# TODO: currently trim_isoseq_polyA causes segmentfault when ran on a working node through qsub for unknown reasons
-trim_isoseq_polyA -t ${Threads} ${samplename}.isoseq_flnc.fasta > ${samplename}.isoseq_flnc.trima.fa 2> log/${samplename}.isoseq_flnc.trima.log \
-&& faSize -detailed -tab ${samplename}.isoseq_flnc.trima.fa > ${samplename}.isoseq_flnc.trima.sizes \
-&& bash ${MYBIN}/gmap.sh ${samplename}.isoseq_flnc.trima.fa ${INDEX_DIR}/gmap_index/ ${genome} ${Threads}
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+if [[ ! -f fasta/${samplename}.isoseq_flnc.trima.fa ]]; then
+trim_isoseq_polyA -t ${Threads} \
+    -i fasta/${samplename}.isoseq_flnc.fasta \
+    > fasta/${samplename}.isoseq_flnc.trima.fa \
+    2> log/${samplename}.isoseq_flnc.trima.log 
+fi
 
+if [[ ! -f table/${samplename}.isoseq_flnc.trima.sizes ]]; then
+faSize -detailed -tab \
+    fasta/${samplename}.isoseq_flnc.trima.fa \
+    > table/${samplename}.isoseq_flnc.trima.sizes
+fi
+
+if [[ ! -f bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam ]]; then
+bash ${MYBIN}/gmap.sh \
+    fasta/${samplename}.isoseq_flnc.trima.fa \
+    ${GMAP_INDEX_DIR} \
+    ${genome} \
+    ${Threads}
+fi
+
+if [[ ! -f gff/${samplename}.isoseq_flnc.trima.${genome}.gtf ]]; then
+bedtools bamtobed -bed12 -split -i bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam \
+    | bedToGenePred /dev/stdin /dev/stdout \
+    | genePredToGtf file /dev/stdin gff/${samplename}.isoseq_flnc.trima.${genome}.gtf
+fi
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
     declare -i gmap_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.gmap -hold_jid ${gmap_ready} < jobs/${samplename}.gmap.sh | cut -f3 -d' ')
     gmap_job_ids=${gmap_jobid},${gmap_job_ids}
 
-    flncfiles+=("${samplename}.isoseq_flnc.trima.fa")
-    flncsizefiles+=("${samplename}.isoseq_flnc.trima.sizes")
-    genomebamfiles+=("${samplename}.isoseq_flnc.trima.${genome}.sorted.bam")
-done
+    flncfiles+=("fasta/${samplename}.isoseq_flnc.trima.fa")
+    flncsizefiles+=("table/${samplename}.isoseq_flnc.trima.sizes")
+    genomebamfiles+=("bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam")
+    genomegtffiles+=("gff/${samplename}.isoseq_flnc.trima.${genome}.gtf")
+done # end of for i in $(seq 0 $((SampleSize-1)))
 
 echo2 "Submit job to draw length distribution on the flnc files"
 cat > jobs/size.sh << EOF
-bash ${MYBIN}/draw_size_dis.sh ${flncsizefiles[@]}
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+bash ${MYBIN}/draw_size_dis.sh ${flncsizefiles[@]} 
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
 declare -i size_dis_jobid=$(${SUBMIT_CMD} -o log -e log -N job_size -hold_jid ${gmap_job_ids} < jobs/size.sh | cut -f3 -d' ')
 
+echo2 "Submit job to run gffcompare"
+# TODO: currently only one genome is supported because genegff is the last one used
+cat > jobs/gffcompare.sh << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+bash ${MYBIN}/count_gene_from_gff.sh jobs/${JOBNAME}.sh ${genegff} ${genomegtffiles[@]}
+# table/gene.counts.tsv and table/mRNA.counts.tsv
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
+declare -i gffcompare_jobid=$(${SUBMIT_CMD} -o log -e log -N job_gffcompare -hold_jid ${gmap_job_ids} < jobs/gffcompare.sh | cut -f3 -d' ')
 
 # send notification
 declare last_job=${size_dis_jobid}
-[[ ! -z ${EmailAdd} ]] \
- && echo "bash ${MYBIN}/send_mail.sh \"${JobName}\" ${OutDirFull} ${EmailAdd}" \
- | declare -i notify_jobid=$(${SUBMIT_CMD} -o log -e log -N notify_done -hold_jid ${last_job} | cut -f3 -d' ')
+if [[ ! -z ${EmailAdd} ]]; then
+    echo "bash ${MYBIN}/send_mail.sh \"${JobName}\" ${OutDirFull} ${EmailAdd}" \
+    | declare -i notify_jobid=$(${SUBMIT_CMD} -o log -e log -N notify_done -hold_jid ${last_job} | cut -f3 -d' ')
+fi

@@ -36,7 +36,7 @@
 #################################################################################
 # author: Bo Han (bhan@pacb.com)
 
-source (paste(Sys.getenv ("PIPELINE_DIRECTORY"),"/bin/R/lib.R",sep=""))
+source (paste(Sys.getenv("PIPELINE_DIRECTORY"),"/bin/R/lib.R",sep=""))
 
 pkgTest("readr")
 pkgTest("ggplot2")
@@ -53,18 +53,18 @@ pdf(outpdf)
 
 ggplot(data) + 
     geom_density(aes(size, colour=treatment), lwd = 1.25, position='identity') +
-    scale_color_brewer(palette="Set1") +
+    scale_color_brewer(palette=(ifelse(num_colors < 9, "Set1", "Set3"))) +
     facet_grid(sizebin ~ tissue) +
-    xlim(0, 12000) +
+    xlim(0, median(data$size) * 3) +
     xlab('length(nt) of flnc') +
     ylab('density') +
     theme_bw()
 
 ggplot(data) + 
     geom_density(aes(size, ..count.., colour=treatment), lwd = 1.25, position='identity') +
-    scale_color_brewer(palette="Set1") +
+    scale_color_brewer(palette=(ifelse(num_colors < 9, "Set1", "Set3"))) +
     facet_grid(sizebin ~ tissue) +
-    xlim(0, 12000) +
+    xlim(0, median(data$size) * 3) +
     xlab('length(nt) of flnc') +
     ylab('count') +
     theme_bw()

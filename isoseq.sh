@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #################################################################################
 # Copyright (c) 2016-, Pacific Biosciences of California, Inc.
 #
@@ -53,8 +53,6 @@ fi
 declare -xr CALLED_PROGRAM_NAME=$(basename $0)
 declare -xr PROGRAM_NAME=$(readlink -f ${0})
 declare -xr PIPELINE_DIRECTORY=$(dirname ${PROGRAM_NAME})
-declare -x  ANNOTATION_DIR=${PIPELINE_DIRECTORY}/annotation
-declare -xr INDEX_DIR=${ANNOTATION_DIR}/index
 declare -xr MYBIN=${PIPELINE_DIRECTORY}/bin
 declare -xr PATH=${MYBIN}:$PATH
 
@@ -67,14 +65,44 @@ set -eu -o pipefail
 . ${PIPELINE_DIRECTORY}/bin/functions.sh
 . ${PIPELINE_DIRECTORY}/config/config.sh
 
+##############
+# validation #
+##############
+# check executables 
+declare -a GLOBAL_REQUIRED_PROGRAMS=( 'awk' 'smrtshell' 'Rscript' )
+for program in "${GLOBAL_REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
+# check user directory setup
+declare -a GLOBAL_REQUIRED_DIRVAR=( 'RLIBDIR' 'SMRT_HOME' 'ANNOTATION_DIR' )
+for dirvar in "${GLOBAL_REQUIRED_DIRVAR[@]}"; do
+  directory=${!dirvar}
+  [[ -z ${directory} || ! -d ${directory} ]] && echo2 "Please specify a valid ${dirvar} in ${PIPELINE_DIRECTORY}/config/config.sh"
+done
+
+declare -x INDEX_DIR=${ANNOTATION_DIR}/index
+declare -x GMAP_INDEX_DIR=${INDEX_DIR}/gmap_index
+mkdir -p ${GMAP_INDEX_DIR}
+
 ########
 # Args #
 ########
+function usage {
+    cat << EOF
+==================
+${FONT_STYLE_RESET}${FONT_STYLE_UNDERLINE}${PACKAGE_NAME}${FONT_STYLE_RESET}
+==================
+This is a pipeline to run PacBio Iso-Seq pipeline from RS II cells (primary analysis) to a final report.
+
+[ all ]
+    CCS + classify + isoaux + report
+
+EOF
+}
+
 if [[ $# -lt 1 ]]; then usage && exit 1; fi
 declare SUBPROGRAM=$(echo ${1} | tr '[A-Z]' '[a-z]')
 case $SUBPROGRAM in
   all)
     shift && bash _all.sh "$@" ;;
   *)
-    echo2 "unrecognized option \"${1}\"! \nplease type \"${PACKAGE_NAME}\" without options to see all the options and usage." error;;
+    echo2 "unrecognized option \"${1}\"" error;;
 esac

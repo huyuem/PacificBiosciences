@@ -1,0 +1,442 @@
+</pre>
+
+<p>
+    This webpage is part of PacBio <em>isoaux</em> pipeline. It can generate one or more interactive, scatter-plots to compare gene/mRNA abundance cross multiple samples.<br>
+</p>
+<div class="instruction">
+    Instruction:<br>
+    <ul>
+        <li>Each row in the table below is one full-length non-chimeric (FLNC) file you input into <em>isoaux</em>.</li>
+        <li>You will have to indicate the sample name and size bin used for each FLNC. Then click "fresh" to load the information.</li>
+        <li>Sample names will appear in the drop-down menu for the X- and Y-axis. Choose the combination you want to plot and click "draw".</li>
+        <li>Once the graph has been drawn, you can hover your mouse to each of the dot to get more information on it. The same gene/mRNA in all the plots and all the size bins will be highlighted, for easy comparision.</li>
+        <li>You can also turn on/off each size bin by clicking the square icon on the bottom right</li>
+        <li>The only purpose of "Size lower" and "Size high" is to group and color FLNC so it doesn't have to match the original experimental setting</li>
+    </ul>
+    <!--A video demo can be found on the right. If the resolution is low on your machine, please click the "YouTube" icon on the botton of the window to watch it on Youtube.com.<br>-->
+</div>
+<!--<iframe width="600" height="600" style="float:right"
+        src="http://www.youtube.com/embed/oEZtHHrW-9A?autoplay=0"
+>
+</iframe>-->
+
+<div id="control_panel">
+    <h5>Control Panel</h5>
+    <table class="control_table">
+        <tr class="header">
+            <th>CCS</th>
+            <th>Sample</th>
+            <th>Size lower (kb)</th>
+            <th>Size higher (kb)</th>
+        </tr>
+    </table>
+    <input type="submit" id="control-take-sample-name" value="refresh"/>
+</div>
+
+<div id="XYcontrol">
+    <fieldset style="width:500px">
+        <legend>X-Y axis</legend>
+        <p>Sample for X-axis:</p>
+        <select id="X-axis-sample">
+        </select>
+        <br>
+        <p>Sample for Y-axis:</p>
+        <select id="Y-axis-sample">
+        </select>
+        <br>
+        <button onclick="draw()">Draw</button>
+    </fieldset>
+</div>
+
+
+<script>
+    d3.selection.prototype.moveToFront = function () {
+        return this.each(function () {
+            this.parentNode.appendChild(this);
+        });
+    };
+
+    var raw = d3.select("#tsvdata").text();
+    var parsed = d3.tsv.parse(raw);
+    var ccsNames = d3.keys(parsed[0]).slice(1);
+    var control_table = d3.select("table.control_table");
+    // create one row for each sample
+    var control_table_rows = control_table
+            .selectAll("tr.row")
+            .data(ccsNames)
+            .enter()
+            .append("tr")
+            .attr("class", function (d) {
+                return "row " + d;
+            });
+    // first column is just the CCS name
+    control_table_rows
+            .append("td")
+            .text(function (d) {
+                return d;
+            });
+
+    // second column is an input for the sample name
+    control_table_rows.append("td")
+            .append("input")
+            .attr("type", "text")
+            //            .attr("name", "control-cell-name[]")
+            .attr("id", function (d) {
+                return "control-cell-name-" + d;
+            });
+
+    // first column is the size bin of the CSS
+    var control_size_lower_cells = control_table_rows.append("td")
+            .append("select")
+            .attr("size", 1)
+            .attr("id", function (d) {
+                return "control-cell-size-lower" + d;
+            })
+            .selectAll("option")
+            .data(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
+            .enter()
+            .append("option")
+            .attr("value", function (d) {
+                return d;
+            })
+            .attr("selected", function(d) {
+                var name = d3.select(this.parentNode).datum();
+                var captured = name.match(/(\d+)-(\d+)kb/);
+                if(captured !== null)
+                    return d == captured[1] ? "selected" : null;
+                else
+                    return null;
+            })
+            .text(function (d) {
+                return d + " kb";
+            });
+
+    var control_size_higher_cells = control_table_rows.append("td")
+            .append("select")
+            .attr("size", 1)
+            .attr("id", function (d) {
+                return "control-cell-size-higher" + d;
+            })
+            .selectAll("option")
+            .data(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
+            .enter()
+            .append("option")
+            .attr("value", function (d) {
+                return d;
+            })
+            .attr("selected", function(d) {
+                var name = d3.select(this.parentNode).datum();
+                var captured = name.match(/(\d+)-(\d+)kb/);
+                if(captured != null)
+                    return d == captured[2] ? "selected" : null;
+                else
+                    return null;
+            })
+            .text(function (d) {
+                return d + " kb";
+            });
+
+    // parse user input
+    sampleNames = [];
+    sizes = [];
+    ccs2sample = {}; // ccs2sample[ccsName] = sampleName
+    ccs2size = {}; // ccs2size[ccsName] = size;
+    lookup = {}; // lookup[sampleName][size] = ccsName;
+
+
+    // draw
+    var draw = function () {
+        parsed.forEach(function (r) {
+            ccsNames.forEach(function (s) {
+                r[s] = parseFloat(r[s]);
+            });
+        });
+        var X_sample = $("#X-axis-sample").val();
+        var Y_sample = $("#Y-axis-sample").val();
+        if (X_sample && Y_sample) { // only draw if X and Y selections is good
+            /* canvas data */
+            var defaultOpacity = .7;
+            var defaultCircleRadius = 5;
+            var canvasSize = {
+                width: 560,
+                height: 560
+            };
+            var margin = {
+                top: 20,
+                right: 20,
+                bottom: 80,
+                left: 80
+            };
+            var width = canvasSize.width - margin.left - margin.right;
+            var height = canvasSize.height - margin.top - margin.bottom;
+            var superscript = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+            var formatPower = function (d) {
+                return (d + "").split("").map(function (c) {
+                    return superscript[c];
+                }).join("");
+            };
+            var formatTick = function (d) {
+                return 10 + formatPower(Math.round(Math.log(d) / Math.LN10));
+            };
+            /* get the x/y lim */
+            var minValue = 1e10;
+            var maxValue = 0;
+            for (var i = 0; i < parsed.length; ++i) {
+                ccsNames.forEach(function (lib) {
+                    if (minValue > parsed[i][lib] && parsed[i][lib] > 0) {
+                        minValue = parsed[i][lib];
+                    }
+                    if (maxValue < parsed[i][lib]) {
+                        maxValue = parsed[i][lib];
+                    }
+                });
+            }
+
+            var xyLim = [minValue, maxValue];
+            /* X axis */
+            var xScale = d3.scale
+                    .log()
+                    .nice()
+                    .domain(xyLim)
+                    .range([0, width]);
+
+            var xAxis = d3.svg.axis()
+                    .scale(xScale)
+                    .orient("bottom")
+                    .ticks(5, function (d) {
+                        return 10
+                                + (d < 1 ? "\u207B" : 0)
+                                + formatPower(Math.round(Math.log(d) / Math.LN10));
+                    })
+                    ;
+
+            /* y axis */
+            var yScale = d3.scale
+                    .log()
+                    .nice()
+                    .domain(xyLim)
+                    .range([height, 0]);
+
+            var yAxis = d3.svg.axis()
+                    .scale(yScale)
+                    .orient("left")
+                    .ticks(5, function (d) {
+                        return 10
+                                + (d < 1 ? "\u207B" : 0)
+                                + formatPower(Math.round(Math.log(d) / Math.LN10));
+                    })
+                    ;
+
+            /* color */
+            var color = d3.scale.category10();
+
+            /* size */
+//            var size = d3.scale.linear().domain([100, 5000]).range([2, 8]);
+
+            /* set up the canvas */
+            var svg = d3.select("body").append("svg")
+                    .attr("width", canvasSize.width)
+                    .attr("height", canvasSize.height)
+                    .append("g")
+                    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            /* x-axis */
+            svg.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + height + ")") /* move to the bottom */
+                    .call(xAxis)
+                    .append("text")
+                    .attr("class", "label")
+                    .attr("x", width - 300)
+                    .attr("y", 50)
+                    .style("test-anchor", "end")
+                    .text(X_sample)
+                    .attr("class", "xLabelName");
+
+            /* y axis */
+            svg.append("g")
+                    .attr("class", "y axis")
+                    .call(yAxis)
+                    .append("text")
+                    .attr("class", "label")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -300)
+                    .attr("y", -70)
+                    .attr("dy", ".71em")
+                    .style("test-anchor", "end")
+                    .text(Y_sample)
+                    .attr("class", "yLabelName");
+
+            /* show transposon name on mouseover */
+            var tooltip = d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("opacity", 0);
+
+            /* draw dots */
+            sizes.forEach(function (size) {
+                var data = parsed.filter(function (d) {
+                    return d[lookup[X_sample][size]] > 0 && d[lookup[Y_sample][size]] > 0;
+                });
+
+                svg.selectAll(".size-" + size)
+                        .data(data)
+                        .enter()
+                        .append("circle")
+                        .attr("class", function (d) {
+                            return "dot " + d.name + " size-" + size + " X-" + X_sample + " Y-" + Y_sample;
+                        })
+                        .attr("r", defaultCircleRadius)
+                        .attr("cx", function (d) {
+                            return xScale(d[lookup[X_sample][size]]);
+                        })
+                        .attr("cy", function (d) {
+                            return yScale(d[lookup[Y_sample][size]]);
+                        })
+                        .style("fill", function () {
+                            return color(size);
+                        })
+                        .style("opacity", defaultOpacity)
+                        .on("mouseover", function (d) {
+                            if (d3.select(this).style("opacity") > 0) { // only select the one
+                                d3.selectAll("circle." + d.name)
+                                        .attr("r", defaultCircleRadius * 2)
+                                        .style("opacity", 1.)
+                                        .moveToFront();
+
+                                tooltip.transition()
+                                        .duration(200)
+                                        .style("opacity", .9);
+
+                                tooltip.html(d.name + " " + size
+                                                + "<br> ("
+                                                + Math.round(d[lookup[X_sample][size]]) + ", "
+                                                + Math.round(d[lookup[Y_sample][size]]) + ")")
+                                        .style("left", (d3.event.pageX + 5) + "px")
+                                        .style("top", (d3.event.pageY - 28) + "px");
+                            }
+                        })
+                        .on("mouseout", function (d) {
+                            if (d3.select(this).style("opacity") > 0) {
+                                d3.selectAll("circle." + d.name)
+                                        .attr("r", defaultCircleRadius)
+                                        .style("opacity", defaultOpacity);
+                            }
+                            tooltip.transition().duration(200).style("opacity", 0);
+                        });
+            });
+            /* end of sizes.forEach */
+
+            /* draw legend */
+            var legendRecSize = 18;
+            var legend = svg.selectAll(".legend")
+                    .data(color.domain())
+                    .enter()
+                    .append("g")
+                    .attr("class", "legend")
+                    .attr("transform", function (d, i) {
+                        return "translate(20," + (i * (legendRecSize + 12) + 305) + ")";
+                    });
+
+            /* draw legend colored rectangle */
+            legend.append("rect")
+                    .attr("x", width - legendRecSize)
+                    .attr("width", legendRecSize)
+                    .attr("height", legendRecSize)
+                    .style("fill", color)
+                    .on("click", function (d) {
+                        if (d3.select(this).style("opacity") == 0.2) {
+                            /* turn back on */
+                            d3.select(this).style("opacity", defaultOpacity);
+                            d3
+                                    .selectAll(".size-" + d)
+                                    .filter("circle")
+                                    .classed("off", false);
+                            ;
+                        } else {
+                            /* turn off opacity */
+                            d3.select(this).style("opacity", 0.2);
+                            d3
+                                    .selectAll(".size-" + d)
+                                    .filter("circle")
+                                    .classed("off", true)
+                            ;
+                        }
+                    });
+
+            /* draw legend text */
+            legend.append("text")
+                    .attr("class", "legend_text")
+                    .attr("x", width - 20)
+                    .attr("y", legendRecSize / 2)
+                    .attr("dy", ".35em")
+                    .style("text-anchor", "end")
+                    .text(function (d) {
+                        return d;
+                    });
+        }
+    };
+
+    // starter
+    $(function () {
+        $('#control-take-sample-name').click(function () {
+            ccsNames.forEach(function (ccs) {
+                // get size for each CCS
+                var l = parseInt($("#control-cell-size-lower" + ccs).val());
+                var h = parseInt($("#control-cell-size-higher" + ccs).val());
+                if (l > h) {
+                    alert("size lower has to be less than higher");
+                }
+                var size = l + '-' + h + 'kb';
+                ccs2size[ccs] = size;
+                if (sizes.indexOf(size) == -1)
+                    sizes.push(size);
+
+                // get sample name for each CCS
+                var sample = $("#control-cell-name-" + ccs).val();
+                ccs2sample[ccs] = sample;
+                if (sampleNames.indexOf(sample) == -1)
+                    sampleNames.push(sample);
+            });
+
+            // to generate control buttons
+            d3.select("#X-axis-sample")
+                    .selectAll(".X-axis-options")
+                    .data(sampleNames)
+                    .enter()
+                    .append("option")
+                    .classed("X-axis-options", true)
+                    .attr("value", function (d) {
+                        return d;
+                    })
+                    .text(function (d) {
+                        return d;
+                    });
+            d3.select("#Y-axis-sample")
+                    .selectAll(".Y-axis-options")
+                    .data(sampleNames)
+                    .enter()
+                    .append("option")
+                    .classed("Y-axis-options", true)
+                    .attr("value", function (d) {
+                        return d;
+                    })
+                    .text(function (d) {
+                        return d;
+                    });
+
+            sampleNames.forEach(function (sample) {
+                lookup[sample] = {};
+                sizes.forEach(function (size) {
+                    lookup[sample][size] = ccsNames.filter(function (ccs) {
+                        return ccs2size[ccs] == size && ccs2sample[ccs] == sample;
+                    })[0];
+                });
+            });
+        });
+    });
+
+</script>
+
+
+</body>
+</html>

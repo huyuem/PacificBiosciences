@@ -23,16 +23,26 @@ Packages used: biopython
 pip3 install biopython
 ```
 
+- User specific directories set-up
+Edit `config/config.sh` to specify the directory related enviromental variables, such as <br> 
+```bash
+declare -x RLIBDIR='/home/bhan/Rlib'
+declare -x ANNOTATION_DIR='/home/bhan/annotation'
+```
+
 -  **R**<br>
 Relatively new version; missing packages will be installed automatically
+
+- trim_isoseq_polyA<br>
+You can obtain it from https://github.com/bowhan/trim_isoseq_polyA 
 
 ## Usage
 #### The user will need to fill a CSV file which specify the information needed, including:
 
 1.  genome<br>
-The genome fasta and genes.gtf files need to be presented in the `annotation` folder. <br>
-For example, if `hg19` is used, the pipeline will expect two files called `hg19.fa` and `hg19.genes.gtf` inside of the `annotation` folder.<br>
-Additionally, a gmap index can be put in the `annotation/index/gmap_index` folder.<br>
+The genome fasta and genes.gtf files need to be presented in the `${ANNOTATION_DIR}` folder, which is defined in `config/config.sh`. <br>
+For example, if `hg19` is used, the pipeline will expect two files called `hg19.fa` and `hg19.genes.gtf` inside of the `${ANNOTATION_DIR}` folder.<br>
+Additionally, a gmap index can be put in the ``${ANNOTATION_DIR}`/index/gmap_index` folder. <br>
 If it is not present, the pipeline will build the index on the first run using this genome. <br>
 
 2. tissue<br>
