@@ -53,7 +53,7 @@ num_colors = length(levels(as.factor(data$treatment)))
 
 pdf(outpdf)
 ggplot(data) + 
-    geom_density(aes(size, colour=treatment), lwd = 1.25, position='identity') +
+    geom_line(aes(size, y=..density.., colour=treatment), lwd = 1.25, stat="density") +
     scale_color_brewer(palette=(ifelse(num_colors < 9, "Set1", "Set3"))) +
     facet_grid(sizebin ~ tissue) +
     xlim(0, median(data$size) * 3) +
@@ -62,7 +62,7 @@ ggplot(data) +
     theme_bw()
 
 ggplot(data) + 
-    geom_density(aes(size, ..count.., colour=treatment), lwd = 1.25, position='identity') +
+    geom_line(aes(size, y=..count.., colour=treatment), lwd = 1.25, stat="density") +
     scale_color_brewer(palette=(ifelse(num_colors < 9, "Set1", "Set3"))) +
     facet_grid(sizebin ~ tissue) +
     xlim(0, median(data$size) * 3) +
