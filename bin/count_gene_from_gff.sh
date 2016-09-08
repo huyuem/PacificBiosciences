@@ -61,8 +61,13 @@ for i in $(seq -s " " 0 $((SampleSize-1))); do
     declare gtf=${!j}
     declare gtfbase=$(basename $gtf)
     declare prefix=${gtfbase%.isoseq*}
-    echo -ne "\t${prefix//./_}" >> table/gene.counts.tsv # convert . to _ because . is mistaken as class in js
-    echo -ne "\t${prefix//./_}" >> table/mRNA.counts.tsv 
+    # fix special chars which confuse CSS selector
+    for r in '+' '.'; do 
+        prefix=${prefix//${r}/_};
+    done
+
+    echo -ne "\t${prefix}" >> table/gene.counts.tsv # convert . to _ because . is mistaken as class in js
+    echo -ne "\t${prefix}" >> table/mRNA.counts.tsv 
 
     python ${MYBIN}/count_gene_from_refmap.py jobout/gffcompareOut/_.${gtfbase}.refmap gene > table/${prefix}.gene.count \
  && awk -v genome=${genome} -v tissue=${tissue} -v treatment=${treatment} -v sizebin=${sizebin} \
@@ -86,10 +91,13 @@ cat ${PIPELINE_DIRECTORY}/html_templates/scatter_plot_gene1.html > html/gene_abu
 cat table/gene.counts.tsv >> html/gene_abundance.html
 cat ${PIPELINE_DIRECTORY}/html_templates/scatter_plot_gene2.html >> html/gene_abundance.html
 
+# mRNA needs gene name and length
+mrna_size_from_gff $refgtf > table/mRNA_gene.sizes.tsv
 cat ${PIPELINE_DIRECTORY}/html_templates/scatter_plot_mRNA1.html > html/mRNA_abundance.html
-cat table/mRNA.counts.tsv >> html/mRNA_abundance.html
+echo -ne "transcript_name\tgene_name\tlength\t" >>  html/mRNA_abundance.html
+head -1 table/mRNA.counts.tsv | cut -f1 --complement >> html/mRNA_abundance.html 
+gawk 'BEGIN{FS=OFS="\t"}{if(ARGIND==1) {g[$3]=$2; l[$3]=$4} else {if(g[$1]){ $1 = $1"\t"(g[$1]?g[$1]:"unknown")"\t"(l[$1]?l[$1]:"unknown"); print $0 }}}' table/mRNA_gene.sizes.tsv table/mRNA.counts.tsv >> html/mRNA_abundance.html
 cat ${PIPELINE_DIRECTORY}/html_templates/scatter_plot_mRNA2.html >> html/mRNA_abundance.html
-
 
 # Rscript ${MYBIN}/R/abundance_scatter.R table/gene.counts.tsv pdf/gene.counts.pdf
 # Rscript ${MYBIN}/R/abundance_scatter.R table/mRNA.counts.tsv pdf/mRNA.counts.pdf

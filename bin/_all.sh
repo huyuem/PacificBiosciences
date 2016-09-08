@@ -80,7 +80,7 @@ echo -e "${FONT_COLOR_RESET}"
 ##########
 declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' \
                             'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'colmerge' \
-                            'bedToGenePred' 'genePredToGtf' "gffcompare" \
+                            'bedToGenePred' 'genePredToGtf' 'gffcompare' 'mrna_size_from_gff' \
                             'bam2wig.py' 'computeMatrix' 'computeMatrix' 'geneBody_coverage.py' \
                             )
 
@@ -292,7 +292,7 @@ bash ${MYBIN}/count_gene_from_gff.sh jobs/${JOBNAME}.sh ${genegff} ${genomegtffi
 # table/gene.counts.tsv and table/mRNA.counts.tsv
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-declare -i gffcompare_jobid=$(${SUBMIT_CMD} -o log -e log -N job_gffcompare -hold_jid ${gmap_job_ids} < jobs/gffcompare.sh | cut -f3 -d' ')
+declare -i gffcompare_jobid=$(${SUBMIT_CMD} -o log -e log -N job_quantification -hold_jid ${gmap_job_ids} < jobs/gffcompare.sh | cut -f3 -d' ')
 
 # send notification
 declare last_job=${size_dis_jobid}

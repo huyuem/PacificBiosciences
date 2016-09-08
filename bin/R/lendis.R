@@ -49,8 +49,9 @@ file = argv[1]
 outpdf = argv[2]
 
 data = read_tsv(file, T)
-pdf(outpdf)
+num_colors = length(levels(as.factor(data$treatment)))
 
+pdf(outpdf)
 ggplot(data) + 
     geom_density(aes(size, colour=treatment), lwd = 1.25, position='identity') +
     scale_color_brewer(palette=(ifelse(num_colors < 9, "Set1", "Set3"))) +
