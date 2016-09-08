@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.0.1
+declare -r MODULE_VERSION=0.0.3.160908
 
 #########
 # Const #
