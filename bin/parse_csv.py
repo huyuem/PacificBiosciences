@@ -18,15 +18,16 @@ with open(sys.argv[1], 'rb') as csvfile:
                                 row['genome'], row['tissue'], row['treatment'], row['size_bin']])
         if not os.path.exists(row['cell_path']):
             sys.stderr.write("cannot access {}, please double check\n".format(row['cell_path']))
-            # sys.exit(1)
+            continue
         if row['barcode_path'] != 'NA' and not os.path.exists(row['barcode_path']):
             sys.stderr.write("cannot access {}, please double check\n".format(row['barcode_path']))
-            # sys.exit(1)
+            continue
         sample_info[sample_name] = row
 # write to a bash source file
 print('declare -xi SampleSize={}'.format(len(sample_info)))
 
-print('declare -xa SampleNames=({})'.format(' '.join(["'" + sample + "'" for sample in sample_info])))
+print('declare -xa SampleNames=({})'.format(
+    ' '.join(["'" + sample + "'" for sample, _ in sample_info.items()])))
 
 print('declare -xa Tissues=({})'.format(
     ' '.join(["'" + row['tissue'] + "'" for sample, row in sample_info.items()])))

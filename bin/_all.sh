@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.0.4.160908
+declare -r MODULE_VERSION=0.1.0.160909
 
 #########
 # Const #
@@ -125,11 +125,12 @@ source jobs/${JOBNAME}.sh
 
 echo2 "Submit jobs for CCS and Classify"
 declare gmap_job_ids=""
-declare -xa flncfiles=()
-declare -xa flncsizefiles=()
-declare -xa genomebamfiles=()
-declare -xa genomegtffiles=()
-declare -xa transcriptomerefs=()
+declare -a flncfiles=()
+declare -a flncsizefiles=()
+declare -a genomebamfiles=()
+declare -a genomegtffiles=()
+declare -a transcriptomerefs=()
+# declare -a primerinfofiles=()
 for i in $(seq 0 $((SampleSize-1))); do
     declare samplename=${SampleNames[$i]}
     echo2 "Process ${samplename}"
@@ -274,28 +275,46 @@ EOF
     flncsizefiles+=("table/${samplename}.isoseq_flnc.trima.sizes")
     genomebamfiles+=("bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam")
     genomegtffiles+=("gff/${samplename}.isoseq_flnc.trima.${genome}.gtf")
+    # primerinfofiles+=("fasta/${samplename}.isoseq_draft.primer_info.csv")
+
 done # end of for i in $(seq 0 $((SampleSize-1)))
 
 echo2 "Submit job to draw length distribution on the flnc files"
+# depends on
+#   ${gmap_job_ids} which generate trimmed flnc files
 cat > jobs/size.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 bash ${MYBIN}/draw_size_dis.sh ${flncsizefiles[@]} 
+bash ${MYBIN}/gather_classify_summary.py ${primerinfofiles[@]}
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
 declare -i size_dis_jobid=$(${SUBMIT_CMD} -o log -e log -N job_size -hold_jid ${gmap_job_ids} < jobs/size.sh | cut -f3 -d' ')
 
 echo2 "Submit job to run gffcompare"
-# TODO: currently only one genome is supported because genegff is the last one used
+# depends on 
+#   $gmap_job_ids for bam/gff files
+# generate $gffcompare_jobid
 cat > jobs/gffcompare.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 bash ${MYBIN}/count_gene_from_gff.sh jobs/${JOBNAME}.sh ${genegff} ${genomegtffiles[@]}
-# table/gene.counts.tsv and table/mRNA.counts.tsv
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
 declare -i gffcompare_jobid=$(${SUBMIT_CMD} -o log -e log -N job_quantification -hold_jid ${gmap_job_ids} < jobs/gffcompare.sh | cut -f3 -d' ')
 
+# generate final report
+# depends on 
+#   ${size_dis_jobid} for length distribution
+#   ${gffcompare_jobid} for quantification 
+# generate ${final_html_report}
+cat > jobs/html_report.sh << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+bash ${MYBIN}/generate_Rmd.sh
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
+declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${gffcompare_jobid},${size_dis_jobid} < jobs/html_report.sh | cut -f3 -d' ')
+
 # send notification
-declare last_job=${size_dis_jobid}
+declare last_job=${final_html_report}
 if [[ ! -z ${EmailAdd} ]]; then
     echo "bash ${MYBIN}/send_mail.sh \"${JobName}\" ${OutDirFull} ${EmailAdd}" \
     | declare -i notify_jobid=$(${SUBMIT_CMD} -o log -e log -N notify_done -hold_jid ${last_job} | cut -f3 -d' ')

@@ -99,5 +99,5 @@ head -1 table/mRNA.counts.tsv | cut -f1 --complement >> html/mRNA_abundance.html
 gawk 'BEGIN{FS=OFS="\t"}{if(ARGIND==1) {g[$3]=$2; l[$3]=$4} else {if(g[$1]){ $1 = $1"\t"(g[$1]?g[$1]:"unknown")"\t"(l[$1]?l[$1]:"unknown"); print $0 }}}' table/mRNA_gene.sizes.tsv table/mRNA.counts.tsv >> html/mRNA_abundance.html
 cat ${PIPELINE_DIRECTORY}/html_templates/scatter_plot_mRNA2.html >> html/mRNA_abundance.html
 
-# Rscript ${MYBIN}/R/abundance_scatter.R table/gene.counts.tsv pdf/gene.counts.pdf
-# Rscript ${MYBIN}/R/abundance_scatter.R table/mRNA.counts.tsv pdf/mRNA.counts.pdf
+Rscript ${MYBIN}/R/abundance.R table/gene.counts.melted.tsv pdf/gene_counts.pdf
+Rscript ${MYBIN}/R/abundance.R table/mRNA.counts.melted.tsv pdf/mRNA_counts.pdf

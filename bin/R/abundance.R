@@ -36,7 +36,7 @@
 #################################################################################
 # author: Bo Han (bhan@pacb.com)
 
-source (paste(Sys.getenv("PIPELINE_DIRECTORY"),"/bin/R/lib.R",sep=""))
+source(paste(Sys.getenv("PIPELINE_DIRECTORY"),"/bin/R/lib.R",sep=""))
 
 pkgTest("readr")
 pkgTest("ggplot2")
@@ -49,15 +49,30 @@ file = argv[1]
 outpdf = argv[2]
 
 data = read_tsv(file, T)
+num_tissues = length(levels(as.factor(data$tissue)))
+num_treatment = length(levels(as.factor(data$treatment)))
+
 pdf(outpdf)
 
+# boxplot
 ggplot(data) + 
-    geom_density(aes(size, colour=treatment), lwd = 1.25, position='identity') +
-    scale_color_brewer(palette="Set1") +
-    facet_grid(sizebin ~ tissue) +
-    xlim(0, median(data$size) * 3) +
-    xlab('length of flnc (nt)') +
-    ylab('density') +
+    geom_boxplot(aes(x = treatment, y = counts, fill=tissue)) + 
+    scale_fill_brewer(palette=(ifelse(num_tissues < 9, "Set1", "Set3"))) +
+    scale_y_log10() + 
+    facet_grid(size_bin ~ .) +
+    xlab('') +
+    ylab('count (log10)') +
+    ggtitle("boxplot for abundance") +
+    theme_bw()
+
+# density distribution of abundances
+ggplot(data) + 
+    geom_line(aes(counts, y=..count.., colour=treatment), lwd = 1.25, stat="density") +
+    scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
+    facet_grid(size_bin ~ tissue) +
+    xlab('normalized abundance') +
+    ylab('counts') +
+    xlim(0, 10) +
     theme_bw()
 
 dev.off()

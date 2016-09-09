@@ -49,12 +49,13 @@ file = argv[1]
 outpdf = argv[2]
 
 data = read_tsv(file, T)
-num_colors = length(levels(as.factor(data$treatment)))
+num_treatment = length(levels(as.factor(data$treatment)))
 
 pdf(outpdf)
+
 ggplot(data) + 
     geom_line(aes(size, y=..density.., colour=treatment), lwd = 1.25, stat="density") +
-    scale_color_brewer(palette=(ifelse(num_colors < 9, "Set1", "Set3"))) +
+    scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
     facet_grid(sizebin ~ tissue) +
     xlim(0, median(data$size) * 3) +
     xlab('length(nt) of flnc') +
@@ -63,7 +64,7 @@ ggplot(data) +
 
 ggplot(data) + 
     geom_line(aes(size, y=..count.., colour=treatment), lwd = 1.25, stat="density") +
-    scale_color_brewer(palette=(ifelse(num_colors < 9, "Set1", "Set3"))) +
+    scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
     facet_grid(sizebin ~ tissue) +
     xlim(0, median(data$size) * 3) +
     xlab('length(nt) of flnc') +
