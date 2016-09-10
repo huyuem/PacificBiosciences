@@ -39,7 +39,17 @@
 
 # prepare tables for the reports
 
-
+temp1=$(mktemp)
+for name in "roi_accuracy_hist" "roi_npasses_hist" "roi_readlength_hist" "fulllength_nonchimeric_readlength_hist"; do
+    echo "#### ${name}" >> ${temp1} # header
+    for png in $(find ./pdf -name "*${name}.png"); do
+        declare pngfull=$(readlink -f ${png})
+        declare pngbase=$(basename ${png})
+        echo "* ${pngbase%.${name}.png}<br>" >> $temp1
+        echo '!'"[${pngbase%.${name}.png}](${pngfull})" >> $temp1
+    done
+    echo "" >> ${temp1} # empty line
+done
 
 # generate Rmd file
 cat > html/report.Rmd << EOF
@@ -64,6 +74,10 @@ setup = read.csv("${ConfigCsvFile}")
 knitr::kable(setup)
 \`\`\`
 
+### smrtportal report
+
+$(cat $temp1)
+
 ### Length distribution of flnc reads
 \`\`\`{r flnc_lendis}
 flnc_sizes = read_tsv("${PWD}/table/flnc_sizes.tsv", T)
@@ -85,6 +99,15 @@ ggplot(flnc_sizes) +
     ylab('count') +
     theme_bw()
 \`\`\`
+
+### RNA integrity
+#### TSS
+![Watson strand](${PWD}/pdf/TSS.watson.png)
+![Crick strand](${PWD}/pdf/TSS.crick.png)
+
+#### TES
+![Watson strand](${PWD}/pdf/TES.watson.png)
+![Crick strand](${PWD}/pdf/TES.crick.png)
 
 ### Quantification
 Check the other HTML file for interactive scatter-plots.

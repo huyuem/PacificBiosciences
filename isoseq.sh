@@ -65,6 +65,26 @@ set -eu -o pipefail
 . ${PIPELINE_DIRECTORY}/bin/functions.sh
 . ${PIPELINE_DIRECTORY}/config/config.sh
 
+function usage {
+    local GREEN=$(echo -ne ${FONT_COLOR_GREEN})
+    local RESET=$(echo -ne ${FONT_STYLE_RESET})
+    local BOLD=$(echo -ne ${FONT_STYLE_BOLD})
+    cat << EOF
+=======================${BOLD}
+${PACKAGE_NAME}
+${RESET}=======================
+This is a pipeline to run PacBio Iso-Seq pipeline from RS II cells (primary analysis) to a final report.
+
+${GREEN}[ all ]
+    CCS + classify + isoaux + report
+${RESET}
+more to come...
+
+EOF
+}
+
+if [[ $# -lt 1 ]]; then usage && exit 1; fi
+
 ##############
 # validation #
 ##############
@@ -74,10 +94,11 @@ for program in "${GLOBAL_REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
 # check user directory setup
 declare -a GLOBAL_REQUIRED_DIRVAR=( 'RLIBDIR' 'SMRT_HOME' 'ANNOTATION_DIR' )
 for dirvar in "${GLOBAL_REQUIRED_DIRVAR[@]}"; do
-  directory=${!dirvar}
-  [[ -z ${directory} || ! -d ${directory} ]] && echo2 "Please specify a valid ${dirvar} in ${PIPELINE_DIRECTORY}/config/config.sh"
+    declare directory=${!dirvar}
+    if [[ -z ${directory} || ! -d ${directory} ]]; then 
+        echo2 "Please specify a valid ${dirvar} in ${PIPELINE_DIRECTORY}/config/config.sh" error
+    fi
 done
-
 declare -x INDEX_DIR=${ANNOTATION_DIR}/index
 declare -x GMAP_INDEX_DIR=${INDEX_DIR}/gmap_index
 mkdir -p ${GMAP_INDEX_DIR}
@@ -85,20 +106,6 @@ mkdir -p ${GMAP_INDEX_DIR}
 ########
 # Args #
 ########
-function usage {
-    cat << EOF
-==================
-${FONT_STYLE_RESET}${FONT_STYLE_UNDERLINE}${PACKAGE_NAME}${FONT_STYLE_RESET}
-==================
-This is a pipeline to run PacBio Iso-Seq pipeline from RS II cells (primary analysis) to a final report.
-
-[ all ]
-    CCS + classify + isoaux + report
-
-EOF
-}
-
-if [[ $# -lt 1 ]]; then usage && exit 1; fi
 declare SUBPROGRAM=$(echo ${1} | tr '[A-Z]' '[a-z]')
 case $SUBPROGRAM in
   all)

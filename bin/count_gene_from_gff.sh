@@ -43,8 +43,10 @@ shift
 shift
 source ${info}
 mkdir -p jobout/gffcompareOut
-gffcompare -r ${refgtf} -G -o jobout/gffcompareOut/_ "$@"
-
+if [[ ! -f jobout/gffcompareOut/_Done ]]; then
+    gffcompare -r ${refgtf} -G -o jobout/gffcompareOut/_ "$@" \
+ && touch jobout/gffcompareOut/_Done
+fi
 declare -a geneCountToMerge=()
 declare -a mrnaCountToMerge=()
 echo -e "genome\ttissue\ttreatment\tsize_bin\tname\tcounts" > table/gene.counts.melted.tsv \
