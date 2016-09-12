@@ -66,6 +66,7 @@ set -eu -o pipefail
 . ${PIPELINE_DIRECTORY}/config/config.sh
 
 function usage {
+    local YELLOW=$(echo -ne ${FONT_COLOR_YELLOW})
     local GREEN=$(echo -ne ${FONT_COLOR_GREEN})
     local RESET=$(echo -ne ${FONT_STYLE_RESET})
     local BOLD=$(echo -ne ${FONT_STYLE_BOLD})
@@ -74,6 +75,9 @@ function usage {
 ${PACKAGE_NAME}
 ${RESET}=======================
 This is a pipeline to run PacBio Iso-Seq pipeline from RS II cells (primary analysis) to a final report.
+
+${YELLOW}[ annotation ]
+    Prepare annotation files for a given genome
 
 ${GREEN}[ all ]
     CCS + classify + isoaux + report
@@ -93,12 +97,12 @@ declare -a GLOBAL_REQUIRED_PROGRAMS=( 'awk' 'smrtshell' 'Rscript' )
 for program in "${GLOBAL_REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
 # check user directory setup
 declare -a GLOBAL_REQUIRED_DIRVAR=( 'RLIBDIR' 'SMRT_HOME' 'ANNOTATION_DIR' )
-for dirvar in "${GLOBAL_REQUIRED_DIRVAR[@]}"; do
-    declare directory=${!dirvar}
-    if [[ -z ${directory} || ! -d ${directory} ]]; then 
-        echo2 "Please specify a valid ${dirvar} in ${PIPELINE_DIRECTORY}/config/config.sh" error
-    fi
-done
+# for dirvar in "${GLOBAL_REQUIRED_DIRVAR[@]}"; do
+#     declare directory=${!dirvar}
+#     if [[ -z ${directory} || ! -d ${directory} ]]; then 
+#         echo2 "Please specify a valid ${dirvar} in ${PIPELINE_DIRECTORY}/config/config.sh" error
+#     fi
+# done
 declare -x INDEX_DIR=${ANNOTATION_DIR}/index
 declare -x GMAP_INDEX_DIR=${INDEX_DIR}/gmap_index
 mkdir -p ${GMAP_INDEX_DIR}
@@ -108,8 +112,10 @@ mkdir -p ${GMAP_INDEX_DIR}
 ########
 declare SUBPROGRAM=$(echo ${1} | tr '[A-Z]' '[a-z]')
 case $SUBPROGRAM in
-  all)
-    shift && bash _all.sh "$@" ;;
-  *)
-    echo2 "unrecognized option \"${1}\"" error;;
+    all)
+        shift && bash _all.sh "$@" ;;
+    anno|annotation)
+        shift && bash _anno.sh "$@";;
+    *)
+        echo2 "unrecognized option \"${1}\"" error;;
 esac
