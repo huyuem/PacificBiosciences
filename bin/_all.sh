@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.1.1.160910
+declare -r MODULE_VERSION=0.1.2.160911
 
 #########
 # Const #
@@ -79,7 +79,7 @@ echo -e "${FONT_COLOR_RESET}"
 # Config #
 ##########
 declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' \
-                            'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'colmerge' \
+                            'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'colmerge' \
                             'bedToGenePred' 'genePredToGtf' 'gffcompare' 'mrna_size_from_gff' \
                             'bam2wig.py' 'computeMatrix' 'computeMatrix' 'geneBody_coverage.py' \
                             )
@@ -193,7 +193,7 @@ EOF
         declare split_barcode_cmd="echo"
     else # barcoded 
         echo2 "${samplename} is barcoded"
-        declare ccsname=${cellid}
+        declare ccsname=$(perl -pe 's/[^A-Za-z0-9]/_/g' <<< $(basename $(dirname ${cellpath})))$(perl -pe 's/[^A-Za-z0-9]/_/g' <<< $(basename ${cellpath}))
         declare pbtrascript_option="--primer=${barcodefile}"
         declare -i total_barcode_number=$(grep '>' ${barcodefile} | wc -l)
         let total_barcode_number/=2 # barcode files are in pair
