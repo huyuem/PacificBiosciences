@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=Anno
-declare -r MODULE_VERSION=0.0.1.160911
+declare -r MODULE_VERSION=0.0.2.160911
 
 #########
 # Const #
@@ -121,6 +121,7 @@ declare GenomeSize=${ANNOTATION_DIR}/${AssemblyName}.sizes
 declare TranscriptomeBed=${ANNOTATION_DIR}/${AssemblyName}.genes.bed12
 declare TranscriptomeGp=${ANNOTATION_DIR}/${AssemblyName}.genes.gp
 declare TranscriptomeGtf=${ANNOTATION_DIR}/${AssemblyName}.genes.gtf
+declare RefFlat=${ANNOTATION_DIR}/${AssemblyName}.refFlat.txt
 declare gmapindex=${GMAP_INDEX_DIR}/${genome}
 
 if [[ -z ${SUB_ASSEMLIES} ]]; then 
@@ -165,39 +166,30 @@ EOF
         echo2 "${TranscriptomeGtf} has already existed" warning
     fi 
     
-    # mysql \
-    #     -h genome-mysql.cse.ucsc.edu \
-    #     -u genome \
-    #     -D ${AssemblyName} \
-    #     -N \
-    #     -A \
-    #     -e 'SELECT 
-    #         chrom,
-    #         txStart,
-    #         txEnd,
-    #         name,
-    #         score,
-    #         strand,
-    #         cdsStart,
-    #         cdsEnd,
-    #         0,
-    #         exonCount,
-    #         exonEnds,
-    #         exonStarts
-    #         FROM refGene' \
-    # | bedToGenePred stdin stdout \
-    # | genePredToGtf file ${TranscriptomeGtf}
-
     if [[ ! -s ${TranscriptomeGtf} ]]; then
         echo2 "Failed to obtain GTF file" error
     fi
 
-else
+    # refflat
+    if [[ ! -s ${RefFlat} ]]; then
+        mysql \
+            -h genome-mysql.cse.ucsc.edu \
+            -u genome \
+            -D ${AssemblyName} \
+            -N \
+            -A \
+            -e 'SELECT * FROM refFlat' \
+            > ${RefFlat} \
+        || echo2 "Cannot obtain refFlat file from UCSC"
+    fi
+
+else # combine assemblies
     echo2 "sub assemblies ${SUB_ASSEMLIES[@]} are provided, will try to combine them" warning
 
     # merge genome sequence
     declare -a subgenomefas=()
     declare -a subgenomegtfs=()
+    declare -a refflatfiles=()
     for subgenome in "${SUB_ASSEMLIES[@]}"; do
         declare subgenomefa=${ANNOTATION_DIR}/${subgenome}.fa
         if [[ ! -s ${subgenomefa} ]]; then 
@@ -209,6 +201,12 @@ else
             echo2 "file ${subgenomegtf} does not exist or it is empty" error; 
         fi
         subgenomegtfs+=(${subgenomegtf})
+
+        declare refflatfile=${ANNOTATION_DIR}/${subgenome}.refFlat.txt
+        if [[ ! -s ${refflatfile} ]]; then
+            echo2 "file ${refflatfile} does not exist or it is empty" error; 
+        fi
+            refflatfiles+=(${refflatfile})
     done
     
     cat ${subgenomefas[@]} > ${GenomeSequence}
@@ -222,6 +220,9 @@ else
 
     # merge transcriptome
     cat ${subgenomegtfs[@]} > ${TranscriptomeGtf}
+
+    # merge refflat
+    cat ${refflatfiles[@]} > ${RefFlat}
 fi
 
 # build gmap index

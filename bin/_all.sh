@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.1.2.160911
+declare -r MODULE_VERSION=0.1.3.160911
 
 #########
 # Const #
@@ -78,7 +78,7 @@ echo -e "${FONT_COLOR_RESET}"
 ##########
 # Config #
 ##########
-declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' \
+declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' 'picard' \
                             'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'colmerge' \
                             'bedToGenePred' 'genePredToGtf' 'gffcompare' 'mrna_size_from_gff' \
                             'bam2wig.py' 'computeMatrix' 'computeMatrix' 'geneBody_coverage.py' \
@@ -94,7 +94,7 @@ while getopts "hvc:o:t:J:E:D" OPTION; do
         c)  declare -x ConfigCsvFile=$(readlink -f ${OPTARG});;
         o)  declare OutputDir=${OPTARG};;
         t)  declare -i Threads=${OPTARG};; 
-        J)  declare JobName="${OPTARG}";;
+        J)  declare -x JobName="${OPTARG}";;
         E)  declare EmailAdd=${OPTARG};;
         D)  set -x;;
         *)  usage && exit 1;;
@@ -102,7 +102,7 @@ while getopts "hvc:o:t:J:E:D" OPTION; do
 done
 [[ -z ${ConfigCsvFile} ]] && echo2 "You have to provide a sample csv file with -c option" error
 [[ -z $Threads ]] && declare -i Threads=${DEFAULT_NUM_THREADS}
-[[ -z ${JobName} ]] && declare JobName="$(date)"
+[[ -z ${JobName} ]] && declare -x JobName="$(date)"
 
 [[ -z $OutputDir ]] && OutputDir=${RANDOM}.out
 declare OutDirFull=$(readlink -f ${OutputDir})
@@ -125,8 +125,10 @@ source jobs/${JOBNAME}.sh
 
 echo2 "Submit jobs for CCS and Classify"
 declare gmap_job_ids=""
+declare picard_job_ids=""
 declare -a flncfiles=()
 declare -a flncsizefiles=()
+declare -a coveragefiles=()
 declare -a genomebamfiles=()
 declare -a genomegtffiles=()
 declare -a bigWigForwardFiles=()
@@ -141,11 +143,17 @@ for i in $(seq 0 $((SampleSize-1))); do
     declare barcodefile=${BarcodeFiles[$i]}
     declare barcode_id=${BarcodeNumbers[$i]}
     declare genome=${Genomes[$i]}
+    
     declare genomefa=${ANNOTATION_DIR}/${genome}.fa
     [[ ! -f ${genomefa} ]] && echo2 "Cannot find genome fasta file ${genomefa}, please move it there or generate a symbol link" error
+    
     declare genegff=${ANNOTATION_DIR}/${genome}.genes.gtf
     [[ ! -f ${genegff} ]] && echo2 "Cannot find transcriptome file ${genegff}, please move it there or generate a symbol link" error
     transcriptomerefs+=(${genegff})
+    
+    declare refflatfile=${ANNOTATION_DIR}/${genome}.refFlat.txt
+    [[ ! -f ${refflatfile} ]] && echo2 "Cannot find refFlat file ${refflatfile}, please move it there or generate a symbol link" error
+
     if [[ -f ${ANNOTATION_DIR}/${genome}.sizes ]]; then 
         declare genomesize=${ANNOTATION_DIR}/${genome}.sizes;
         declare genome_size_jid=""
@@ -335,17 +343,34 @@ if [[ ! -f bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.bw \
     bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.wig \
     bigWig/${samplename}.isoseq_flnc.trima.${genome}.Reverse.wig 
 fi
-
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
     declare -i gmap_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.gmap -hold_jid ${gmap_ready} < jobs/${samplename}.gmap.sh | cut -f3 -d' ')
     gmap_job_ids=${gmap_jobid},${gmap_job_ids}
 
+# draw coverage plot 
+    cat > jobs/${samplename}.CollectRnaSeqMetrics.sh << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+if [[ ! -f table/${samplename}.isoseq_flnc.trima.coverage ]]; then
+    picard CollectRnaSeqMetrics \
+        REF_FLAT=${refflatfile} \
+        INPUT=bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam \
+        O=table/${samplename}.isoseq_flnc.trima.coverage \
+        STRAND=FIRST_READ_TRANSCRIPTION_STRAND
+fi
+
+awk 'BEGIN{FS=OFS="\t"}{if(\$1>0 && \$1<101) print \$1,\$2}' table/${samplename}.isoseq_flnc.trima.coverage \
+    > table/${samplename}.isoseq_flnc.trima.coverage.tsv
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
+    declare -i piccard_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.picard -hold_jid ${gmap_jobid} < jobs/${samplename}.CollectRnaSeqMetrics.sh | cut -f3 -d' ')
+    piccard_jobid=${piccard_jobid},${piccard_jobid}
+# clean up
     flncfiles+=("fasta/${samplename}.isoseq_flnc.trima.fa")
     flncsizefiles+=("table/${samplename}.isoseq_flnc.trima.sizes")
+    coveragefiles+=(" table/${samplename}.isoseq_flnc.trima.coverage.tsv")
     genomebamfiles+=("bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam")
     genomegtffiles+=("gff/${samplename}.isoseq_flnc.trima.${genome}.gtf")
-    # primerinfofiles+=("fasta/${samplename}.isoseq_draft.primer_info.csv")
     bigWigForwardFiles+=("bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.bw")
     bigWigReverseFiles+=("bigWig/${samplename}.isoseq_flnc.trima.${genome}.Reverse.bw")
 done # end of for i in $(seq 0 $((SampleSize-1)))
@@ -418,6 +443,15 @@ EOF
 
 declare -i tss_tes_report=$(${SUBMIT_CMD} -o log -e log -N job_TSSTES -hold_jid ${gmap_job_ids} < jobs/TSSTES.sh | cut -f3 -d' ')
 
+
+# coverage plot
+cat > jobs/coverage.sh << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+bash ${MYBIN}/draw_coverage.sh ${coveragefiles[@]}
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
+declare -i coverage_report=$(${SUBMIT_CMD} -o log -e log -N job_coverage -hold_jid ${piccard_jobid} < jobs/coverage.sh | cut -f3 -d' ')
+
 echo2 "Generate final report"
 # generate final report
 # depends on 
@@ -430,7 +464,7 @@ cat > jobs/html_report.sh << EOF
 bash ${MYBIN}/generate_Rmd.sh
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${gffcompare_jobid},${size_dis_jobid},${tss_tes_report} < jobs/html_report.sh | cut -f3 -d' ')
+declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${gffcompare_jobid},${size_dis_jobid},${tss_tes_report},${coverage_report} < jobs/html_report.sh | cut -f3 -d' ')
 
 # send notification
 declare last_job=${final_html_report}
