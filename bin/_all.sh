@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.1.3.160911
+declare -r MODULE_VERSION=0.1.4.160912
 
 #########
 # Const #
@@ -364,7 +364,7 @@ awk 'BEGIN{FS=OFS="\t"}{if(\$1>0 && \$1<101) print \$1,\$2}' table/${samplename}
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
     declare -i piccard_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.picard -hold_jid ${gmap_jobid} < jobs/${samplename}.CollectRnaSeqMetrics.sh | cut -f3 -d' ')
-    piccard_jobid=${piccard_jobid},${piccard_jobid}
+    picard_job_ids=${piccard_jobid},${picard_job_ids}
 # clean up
     flncfiles+=("fasta/${samplename}.isoseq_flnc.trima.fa")
     flncsizefiles+=("table/${samplename}.isoseq_flnc.trima.sizes")
@@ -450,7 +450,7 @@ cat > jobs/coverage.sh << EOF
 bash ${MYBIN}/draw_coverage.sh ${coveragefiles[@]}
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-declare -i coverage_report=$(${SUBMIT_CMD} -o log -e log -N job_coverage -hold_jid ${piccard_jobid} < jobs/coverage.sh | cut -f3 -d' ')
+declare -i coverage_report=$(${SUBMIT_CMD} -o log -e log -N job_coverage -hold_jid ${picard_job_ids} < jobs/coverage.sh | cut -f3 -d' ')
 
 echo2 "Generate final report"
 # generate final report
