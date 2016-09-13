@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.1.4.160912
+declare -r MODULE_VERSION=0.1.5.160912
 
 #########
 # Const #
@@ -81,7 +81,7 @@ echo -e "${FONT_COLOR_RESET}"
 declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' 'picard' \
                             'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'colmerge' \
                             'bedToGenePred' 'genePredToGtf' 'gffcompare' 'mrna_size_from_gff' \
-                            'bam2wig.py' 'computeMatrix' 'computeMatrix' 'geneBody_coverage.py' \
+                            'bam2wig.py' 'computeMatrix' 'computeMatrix' \
                             )
 
 #############################

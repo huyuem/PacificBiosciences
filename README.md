@@ -21,13 +21,6 @@ declare -x SUBMIT_CMD='qsub -V -cwd -pe smp 8 -l h_rt=240:0:0,mem_free=8G'
 ```
 *Currently only SGE is supported*
 
--  **Python3**<br>
-Packages used: biopython
-```bash
-# to install
-pip3 install biopython
-```
-
 - User specific directories set-up
 Edit `config/config.sh` to specify the directory related enviromental variables, such as <br> 
 ```bash
@@ -37,11 +30,34 @@ declare -x RLIBDIR='/home/bhan/Rlib'
 declare -x ANNOTATION_DIR='/home/bhan/annotation'
 ```
 
--  **R**<br>
-Relatively new version; missing packages will be installed automatically
+-  **Python3**<br>
+Packages used: biopython
+```bash
+# to install
+pip3 install biopython
+```
 
-- trim_isoseq_polyA<br>
-You can obtain it from https://github.com/bowhan/trim_isoseq_polyA 
+-  **R**<br>
+Relatively new version; missing packages will be installed automatically during the pipeline run.<br>
+But it is highly recommended to install them beforehand. 
+```R
+# to install those packages
+install.packages(c("readr", "dplyr", "tidyr", "rmarkdown", "corrplot", "ggplot2", "ggthemes", "plotly", "shiny"))
+```
+
+- Other tools
+
+[trim_isoseq_polyA](https://github.com/bowhan/trim_isoseq_polyA)
+
+[mrna_size_from_gff and colmerge](https://github.com/bowhan/isoaux)
+
+[deepTools](https://github.com/fidelram/deepTools)
+
+[picard](https://broadinstitute.github.io/picard/)
+
+[kent tools](https://github.com/ENCODE-DCC/kentUtils)
+
+[gmap and gmap_build](http://research-pub.gene.com/gmap/)
 
 ## Usage
 #### The user will need to fill a CSV file which specify the information needed, including:
