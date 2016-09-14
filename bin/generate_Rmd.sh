@@ -132,6 +132,7 @@ ggplot(coverages) +
 
 ### Quantification
 Check the other HTML file for interactive scatter-plots.
+
 #### Gene level
 \`\`\`{r gene_quantification}
 gene_counts = read_tsv("${PWD}/table/gene.counts.melted.tsv", T)
