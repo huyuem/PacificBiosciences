@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=Anno
-declare -r MODULE_VERSION=0.0.2.160911
+declare -r MODULE_VERSION=0.1.0.160914
 
 #########
 # Const #
@@ -131,14 +131,15 @@ if [[ -z ${SUB_ASSEMLIES} ]]; then
     # genome sequence
     if [[ ! -f ${GenomeSequence} ]]; then
         echo2 "Obtain genome sequence from UCSC"
-        echo2 "Try compressed gzip"
-        rsync -a -P rsync://hgdownload.cse.ucsc.edu/goldenPath/${AssemblyName}/bigZips/${AssemblyName}.fa.gz ./ \
-        && gunzip ${AssemblyName}.fa.gz
-        if [[ ! -f ${GenomeSequence} ]]; then
-            echo2 "Try 2bits"
-            rsync -a -P rsync://hgdownload.cse.ucsc.edu/goldenPath/${AssemblyName}/bigZips/${AssemblyName}.2bit ./ \
-        && twoBitToFa ${AssemblyName}.2bit ${GenomeSequence}
-        fi
+        # echo2 "Try compressed gzip"
+        # rsync -a -P rsync://hgdownload.cse.ucsc.edu/goldenPath/${AssemblyName}/bigZips/${AssemblyName}.fa.gz ./ \
+        # && gunzip ${AssemblyName}.fa.gz
+        # if [[ ! -f ${GenomeSequence} ]]; then
+        echo2 "Try 2bits"
+        rsync -a -P rsync://hgdownload.cse.ucsc.edu/goldenPath/${AssemblyName}/bigZips/${AssemblyName}.2bit ./ \
+        && twoBitToFa ${AssemblyName}.2bit ${GenomeSequence} \
+        && rm ${AssemblyName}.2bit
+        # fi
         
         if [[ ! -f ${GenomeSequence} ]]; then echo2 "Cannot obtain ${AssemblyName}.fa ... " error; fi
     fi
@@ -155,16 +156,22 @@ if [[ -z ${SUB_ASSEMLIES} ]]; then
         echo2 "Trying to obtain gtf file from UCSC"
         if [[ ! -s ${HOME}/.hg.conf ]]; then
             cat > ${HOME}/.hg.conf << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 db.host=genome-mysql.cse.ucsc.edu
 db.user=genomep
 db.password=password
 central.db=hgcentral
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
+
             chmod 600 ${HOME}/.hg.conf
-            genePredToGtf ${AssemblyName} refFlat ${TranscriptomeGtf}
-    else 
+        fi # end of [[ ! -s ${HOME}/.hg.conf ]]
+        
+        genePredToGtf ${AssemblyName} refFlat ${TranscriptomeGtf}
+    else # [[ -f ${TranscriptomeGtf} ]]
         echo2 "${TranscriptomeGtf} has already existed" warning
-    fi 
+    fi # end of [[ -f ${TranscriptomeGtf} ]]
+    
     
     if [[ ! -s ${TranscriptomeGtf} ]]; then
         echo2 "Failed to obtain GTF file" error

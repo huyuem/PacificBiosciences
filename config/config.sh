@@ -3,6 +3,7 @@ declare -x SMRT_HOME='/pbi/analysis/smrtportal/beta/install/smrtanalysis_2.3.0.1
 # the following directories need write permission of the first R library and genome user.
 declare -x RLIBDIR='/home/bhan/Rlib'
 declare -x ANNOTATION_DIR='/home/bhan/annotation/'
+# declare -x ANNOTATION_DIR='/home/bhan/jobs/tmp'
 
 # SGE related
 declare -x SUBMIT_CMD='qsub -V -cwd -pe smp 4 -l h_rt=240:0:0,mem_free=8G'
