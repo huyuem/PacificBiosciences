@@ -97,12 +97,6 @@ declare -a GLOBAL_REQUIRED_PROGRAMS=( 'awk' 'smrtshell' 'Rscript' )
 for program in "${GLOBAL_REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
 # check user directory setup
 declare -a GLOBAL_REQUIRED_DIRVAR=( 'RLIBDIR' 'SMRT_HOME' 'ANNOTATION_DIR' )
-# for dirvar in "${GLOBAL_REQUIRED_DIRVAR[@]}"; do
-#     declare directory=${!dirvar}
-#     if [[ -z ${directory} || ! -d ${directory} ]]; then 
-#         echo2 "Please specify a valid ${dirvar} in ${PIPELINE_DIRECTORY}/config/config.sh" error
-#     fi
-# done
 declare -x INDEX_DIR=${ANNOTATION_DIR}/index
 declare -x GMAP_INDEX_DIR=${INDEX_DIR}/gmap_index
 mkdir -p ${GMAP_INDEX_DIR}

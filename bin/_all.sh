@@ -54,9 +54,9 @@ declare -ri DEFAULT_NUM_THREADS=8
 function usage {
 cat << EOF
 ${PACKAGE_NAME}::${MODULE_NAME}
-============================================
-Run CCS + IsoSeq Classify + IsoAux + Reports
-============================================
+======================================================
+Run CCS + IsoSeq Classify + IsoAux + Cluster + Reports
+======================================================
 
 OPTIONS:
         -h      Show usage
@@ -79,8 +79,8 @@ echo -e "${FONT_COLOR_RESET}"
 # Config #
 ##########
 declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' 'picard' \
-                            'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'colmerge' \
-                            'bedToGenePred' 'genePredToGtf' 'gffcompare' 'mrna_size_from_gff' \
+                            'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'bedToBigBedl' 'colmerge' \
+                            'bedToGenePred' 'genePredToGtf' 'gffcompare' 'cuffmerge' 'mrna_size_from_gff' \
                             'bam2wig.py' 'computeMatrix' 'computeMatrix' \
                             )
 
@@ -110,7 +110,7 @@ mkdir -p $OutputDir || echo2 "Don't have permission to create folder $OutputDir"
 cd $OutputDir || echo2 "Don't have permission to access folder $OutputDir" error
 ( touch a && rm -f a ) || echo2 "Don't have permission to write in folder $OutputDir" error
 
-mkdir -p annotation log jobs jobout fasta bam gff fofn table pdf html bigWig
+mkdir -p annotation log jobs jobout fasta bam gff bed fofn table pdf html bigWig
 
 for program in "${REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
 
@@ -126,6 +126,7 @@ source jobs/${JOBNAME}.sh
 echo2 "Submit jobs for CCS and Classify"
 declare gmap_job_ids=""
 declare picard_job_ids=""
+declare cluster_jobids=""
 declare -a flncfiles=()
 declare -a flncsizefiles=()
 declare -a coveragefiles=()
@@ -134,6 +135,7 @@ declare -a genomegtffiles=()
 declare -a bigWigForwardFiles=()
 declare -a bigWigReverseFiles=()
 declare -a transcriptomerefs=()
+declare -a clusterMappedGtfs=()
 # declare -a primerinfofiles=()
 for i in $(seq 0 $((SampleSize-1))); do
     declare samplename=${SampleNames[$i]}
@@ -205,7 +207,7 @@ EOF
         declare pbtrascript_option="--primer=${barcodefile}"
         declare -i total_barcode_number=$(grep '>' ${barcodefile} | wc -l)
         let total_barcode_number/=2 # barcode files are in pair
-        declare split_barcode_cmd="python ${MYBIN}/split_flnc_barcodes.py fasta/${ccsname}.isoseq_flnc.fasta ${total_barcode_number}"
+        declare split_barcode_cmd="python ${MYBIN}/split_flnc_barcodes.py fasta/${ccsname}.isoseq_flnc.fasta ${total_barcode_number}; python ${MYBIN}/split_flnc_barcodes.py fasta/${ccsname}.isoseq_nfl.fasta ${total_barcode_number}"
     fi
 
     # 1. CCS
@@ -262,8 +264,12 @@ $SMRT_HOME/smrtcmds/bin/smrtshell -c "pbtranscript.py classify \
     --nfl fasta/${ccsname}.isoseq_nfl.fasta \
     -d jobout/${ccsname}.classifyOut \
     fasta/${ccsname}.CCS.fa \
-    fasta/${ccsname}.isoseq_draft.fasta" \
-&& ${split_barcode_cmd}
+    fasta/${ccsname}.isoseq_draft.fasta" 
+fi
+
+# split barcode
+if [[ ! -f log/${ccsname}.barcode_splited.Done ]]; then
+    ${split_barcode_cmd} && touch log/${ccsname}.barcode_splited.Done
 fi
 
 # run classify report
@@ -291,6 +297,10 @@ EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 if [[ ! -f fasta/${samplename}.isoseq_flnc.fasta && -f fasta/${ccsname}.isoseq_flnc.fasta.barcode${barcode_id} ]]; then
     mv fasta/${ccsname}.isoseq_flnc.fasta.barcode${barcode_id} fasta/${samplename}.isoseq_flnc.fasta
+fi
+
+if [[ ! -f fasta/${samplename}.isoseq_nfl.fasta && -f fasta/${ccsname}.isoseq_nfl.fasta.barcode${barcode_id} ]]; then
+    mv fasta/${ccsname}.isoseq_nfl.fasta.barcode${barcode_id}  fasta/${samplename}.isoseq_nfl.fasta
 fi
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
@@ -373,6 +383,55 @@ EOF
     genomegtffiles+=("gff/${samplename}.isoseq_flnc.trima.${genome}.gtf")
     bigWigForwardFiles+=("bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.bw")
     bigWigReverseFiles+=("bigWig/${samplename}.isoseq_flnc.trima.${genome}.Reverse.bw")
+
+    # 4. run Cluster
+    #  
+    cat > jobs/${samplename}.Cluster.sh << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+if [[ ! -s jobout/${samplename}.clusterOut/all_quivered_hq.100_30_0.99.fasta ]]; then
+    $SMRT_HOME/smrtcmds/bin/smrtshell -c \
+        "pbtranscript.py cluster \
+            fasta/${samplename}.isoseq_flnc.trima.fa \
+            fasta/${samplename}.final.consensus.fa \
+            --nfl_fa fasta/${samplename}.isoseq_nfl.fasta \
+            -d jobout/${samplename}.clusterOut \
+            --ccs_fofn fofn/${ccsname}.reads_of_insert.fofn \
+            --bas_fofn fofn/${ccsname}.bax.fofn \
+            --cDNA_size under1k \
+            --quiver \
+            --blasr_nproc ${Threads} \
+            --quiver_nproc ${Threads} "
+fi
+
+if [[ ! -f fasta/${samplename}.all_quivered_hq.100_30_0.99.fasta \
+     && -s jobout/${samplename}.clusterOut/all_quivered_hq.100_30_0.99.fasta ]]; then
+    ln -s \
+        $PWD/jobout/${samplename}.clusterOut/all_quivered_hq.100_30_0.99.fasta \
+        fasta/${samplename}.all_quivered_hq.100_30_0.99.fasta
+fi
+
+if [[ ! -f bam/${samplename}.all_quivered_hq.100_30_0.99.${genome}.sorted.bam \
+     && -f fasta/${samplename}.all_quivered_hq.100_30_0.99.fasta ]]; then
+    bash ${MYBIN}/gmap.sh \
+        fasta/${samplename}.all_quivered_hq.100_30_0.99.fasta \
+        ${GMAP_INDEX_DIR} \
+        ${genome} \
+        ${Threads}
+fi
+
+# convert bam to gtf
+if [[ ! -f gff/${samplename}.all_quivered_hq.100_30_0.99.${genome}.gtf \
+     && -f bam/${samplename}.all_quivered_hq.100_30_0.99.${genome}.sorted.bam ]]; then
+    bedtools bamtobed -bed12 -split -i bam/${samplename}.all_quivered_hq.100_30_0.99.${genome}.sorted.bam \
+        | bedToGenePred /dev/stdin /dev/stdout \
+        | genePredToGtf file /dev/stdin gff/${samplename}.all_quivered_hq.100_30_0.99.${genome}.gtf
+fi
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
+    declare -i cluster_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.cluster -hold_jid ${ccsclassify_jobid} < jobs/${samplename}.Cluster.sh | cut -f3 -d' ')
+    cluster_jobids=${cluster_jobid},${cluster_jobids}
+    clusterMappedGtfs+=( gff/${samplename}.all_quivered_hq.100_30_0.99.${genome}.gtf )
+
 done # end of for i in $(seq 0 $((SampleSize-1)))
 
 echo2 "Submit job to draw length distribution on the flnc files"
@@ -380,8 +439,10 @@ echo2 "Submit job to draw length distribution on the flnc files"
 #   ${gmap_job_ids} which generate trimmed flnc files
 cat > jobs/size.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-bash ${MYBIN}/draw_size_dis.sh ${flncsizefiles[@]} 
-# bash ${MYBIN}/gather_classify_summary.py ${primerinfofiles[@]}
+if [[ ! -f table/draw_size_dis.Done ]]; then
+    bash ${MYBIN}/draw_size_dis.sh ${flncsizefiles[@]} \
+    && touch table/draw_size_dis.Done
+fi
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
 declare -i size_dis_jobid=$(${SUBMIT_CMD} -o log -e log -N job_size -hold_jid ${gmap_job_ids} < jobs/size.sh | cut -f3 -d' ')
@@ -452,8 +513,75 @@ bash ${MYBIN}/draw_coverage.sh ${coveragefiles[@]}
 EOF
 declare -i coverage_report=$(${SUBMIT_CMD} -o log -e log -N job_coverage -hold_jid ${picard_job_ids} < jobs/coverage.sh | cut -f3 -d' ')
 
-echo2 "Generate final report"
+# post clustering, compare annotation with gffcompare
+echo -e ${clusterMappedGtfs[@]} | tr ' ' '\n' > fofn/cluster_mapped_gtf.fofn
+cat > jobs/gffcompare.sh << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+mkdir -p jobout/clusterGffcompareOut
+
+if [[ ! -f jobout/clusterGffcompareOut/gffcompare.Done ]]; then
+    gffcompare -G -D \
+        -r ${Annotation} \
+        -o jobout/clusterGffcompareOut/gffcompare \
+        ${clusterMappedGtfs[@]} \
+    && touch jobout/clusterGffcompareOut/gffcompare.Done
+fi
+
+if [[ ! -f gff/gffcompare.combined.gtf \
+   &&   -f jobout/clusterGffcompareOut/gffcompare.combined.gtf ]]; then
+    ln -s $PWD/jobout/clusterGffcompareOut/gffcompare.combined.gtf gff/gffcompare.combined.gtf
+fi
+
+if [[ ! -f gffcompare.combined.chained.code.bb \
+   &&   -f gff/gffcompare.combined.gtf ]]; then
+    gtfToGenePred \
+        gff/gffcompare.combined.gtf \
+        /dev/stdout \
+    | genePredToBed \
+        /dev/stdin \
+        /dev/stdout \
+    | bedSort \
+        /dev/stdin \
+        bed/gffcompare.combined.bed.temp \
+    && gawk 'BEGIN{FS=OFS="\t"}{ \
+        if(ARGIND==1){ \
+            h[\$1]=\$4; \
+        } else { \
+             if(h[\$4]=="=") \$9="0,0,0"; \
+        else if(h[\$4]=="c") \$9="230,159,0"; \
+        else if(h[\$4]=="j") \$9="255,0,0"; \
+        else if(h[\$4]=="e") \$9="0,114,178"; \
+        else if(h[\$4]=="i") \$9="0,158,115"; \
+        else if(h[\$4]=="o") \$9="240,228,66"; \
+        else if(h[\$4]=="x") \$9="213,94,0"; \
+        else                 \$9="204,121,167"; \
+        \$4=h[\$4]\$4; \
+        print \$0}}' \
+        jobout/clusterGffcompareOut/gffcompare.tracking \
+        bed/gffcompare.combined.bed.temp \
+        > bed/gffcompare.combined.bed \
+    && bedToBigBed \
+        bed/gffcompare.combined.bed \
+        ${genomesize} \
+        bed/gffcompare.combined.chained.code.bb
+fi
+
+# if [[ ! -f jobout/clusterCuffmergeOut/Done ]]; then
+#     cuffmerge \
+#         -p ${Threads} \
+#         -g ${Annotation} \
+#         -s ${genomefa} \
+#         -o jobout/clusterCuffmergeOut \
+#         fofn/cluster_mapped_gtf.fofn \
+#     && ln -s $PWD/jobout/clusterCuffmergeOut/merged.gtf gff/Cuffmerged.gtf \
+#     && touch jobout/clusterCuffmergeOut/Done
+# fi
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
+declare -i gffcompare_job=$(${SUBMIT_CMD} -o log -e log -N job_gffcompare -hold_jid ${cluster_jobids} < jobs/gffcompare.sh | cut -f3 -d' ')
+
 # generate final report
+echo2 "Generate final report"
 # depends on 
 #   ${size_dis_jobid} for length distribution
 #   ${gffcompare_jobid} for quantification 
@@ -467,7 +595,7 @@ EOF
 declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${gffcompare_jobid},${size_dis_jobid},${tss_tes_report},${coverage_report} < jobs/html_report.sh | cut -f3 -d' ')
 
 # send notification
-declare last_job=${final_html_report}
+declare last_job=${gffcompare_job}
 if [[ ! -z ${EmailAdd} ]]; then
     echo "bash ${MYBIN}/send_mail.sh \"${JobName}\" ${OutDirFull} ${EmailAdd}" \
     | declare -i notify_jobid=$(${SUBMIT_CMD} -o log -e log -N notify_done -hold_jid ${last_job} | cut -f3 -d' ')
