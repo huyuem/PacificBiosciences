@@ -28,6 +28,7 @@ if ! _gmapIndexCheck $index_dir $index_name; then
 fi
 
 gmap \
+	${GmapOption} \
 	-t ${threads} \
 	-D ${index_dir} \
 	-d ${index_name} \

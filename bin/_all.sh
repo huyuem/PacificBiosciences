@@ -42,6 +42,7 @@
 #########
 declare -r MODULE_NAME=All
 declare -r MODULE_VERSION=0.2.1.161005
+declare -x GmapOption=''
 
 #########
 # Const #
@@ -66,6 +67,7 @@ ${REQUIRED}[ required ]
         -c      Config CSV file
 ${OPTIONAL}[ optional ]
         -o      Output folder, will create if not exist. Default: ${PWD}
+        -P      Prokaryotic genome, turn off splicing
         -t      Number of CPU to use in each job. Default: ${DEFAULT_NUM_THREADS}
         -J      Name of this Job
         -E      Email address to be notified when jobs is done
@@ -87,12 +89,13 @@ declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 
 #############################
 # ARGS reading and checking #
 #############################
-while getopts "hvc:o:t:J:E:D" OPTION; do
+while getopts "hvc:o:t:J:E:DP" OPTION; do
     case $OPTION in
         h)  usage && exit 0 ;;
         v)  echo ${PACKAGE_NAME}::${MODULE_NAME} v${MODULE_VERSION} && exit 0;;
         c)  declare -x ConfigCsvFile=$(readlink -f ${OPTARG});;
         o)  declare OutputDir=${OPTARG};;
+        P)  GmapOption='--nosplicing';;
         t)  declare -i Threads=${OPTARG};; 
         J)  declare -x JobName="${OPTARG}";;
         E)  declare EmailAdd=${OPTARG};;
