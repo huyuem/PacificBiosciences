@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.1.5.160912
+declare -r MODULE_VERSION=0.2.0.161002
 
 #########
 # Const #
@@ -81,7 +81,7 @@ echo -e "${FONT_COLOR_RESET}"
 declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' 'picard' \
                             'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'bedToBigBedl' 'colmerge' \
                             'bedToGenePred' 'genePredToGtf' 'gffcompare' 'cuffmerge' 'mrna_size_from_gff' \
-                            'bam2wig.py' 'computeMatrix' 'computeMatrix' \
+                            'bedGraphToBigWig' 'computeMatrix' 'computeMatrix' \
                             )
 
 #############################
@@ -336,22 +336,50 @@ bash ${MYBIN}/gmap.sh \
     ${Threads}
 fi
 
-if [[ ! -f gff/${samplename}.isoseq_flnc.trima.${genome}.gtf ]]; then
-bedtools bamtobed -bed12 -split -i bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam \
-    | bedToGenePred /dev/stdin /dev/stdout \
+if [[ ! -f bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed \
+     && -f bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam ]]; then
+    bedtools bamtobed \
+        -bed12 \
+        -split \
+        -i bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam \
+        > bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed
+fi
+
+if [[ ! -f gff/${samplename}.isoseq_flnc.trima.${genome}.gtf \
+    &&  -f bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed ]]; then
+    bedToGenePred bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed /dev/stdout \
     | genePredToGtf file /dev/stdin gff/${samplename}.isoseq_flnc.trima.${genome}.gtf
 fi
 
 if [[ ! -f bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.bw \
    || ! -f bigWig/${samplename}.isoseq_flnc.trima.${genome}.Reverse.bw ]]; then
-    bam2wig.py \
-        -s ${genomesize} \
-        -i bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam \
-        -o bigWig/${samplename}.isoseq_flnc.trima.${genome} \
-        -u -d '++,--' \
- && rm \
-    bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.wig \
-    bigWig/${samplename}.isoseq_flnc.trima.${genome}.Reverse.wig 
+    bedtools genomecov -split -bg \
+        -strand + \
+        -g ${genomesize} \
+        -i bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed \
+    > bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bedGraph \
+    && bedSort \
+        bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bedGraph \
+        bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bedGraph \
+    && bedGraphToBigWig \
+        bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bedGraph \
+        ${genomesize} \
+        bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.bw
+    # negate the values for Crick strand
+    bedtools genomecov -split -bg \
+        -strand - \
+        -g ${genomesize} \
+        -i bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed \
+    | awk 'BEGIN{FS=OFS="\t"}{\$4=-\$4; print \$0}' \
+        > bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bedGraph \
+    && bedSort \
+        bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bedGraph \
+        bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bedGraph \
+    && bedGraphToBigWig \
+        bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bedGraph \
+        ${genomesize} \
+        bigWig/${samplename}.isoseq_flnc.trima.${genome}.Reverse.bw \
+    && rm bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bedGraph
 fi
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
@@ -595,7 +623,7 @@ EOF
 declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${gffcompare_jobid},${size_dis_jobid},${tss_tes_report},${coverage_report} < jobs/html_report.sh | cut -f3 -d' ')
 
 # send notification
-declare last_job=${gffcompare_job}
+declare last_job=${gffcompare_job},${final_html_report}
 if [[ ! -z ${EmailAdd} ]]; then
     echo "bash ${MYBIN}/send_mail.sh \"${JobName}\" ${OutDirFull} ${EmailAdd}" \
     | declare -i notify_jobid=$(${SUBMIT_CMD} -o log -e log -N notify_done -hold_jid ${last_job} | cut -f3 -d' ')

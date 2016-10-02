@@ -71,7 +71,7 @@ for i in $(seq -s " " 0 $((SampleSize-1))); do
     echo -ne "\t${prefix}" >> table/gene.counts.tsv # convert . to _ because . is mistaken as class in js
     echo -ne "\t${prefix}" >> table/mRNA.counts.tsv 
 
-    python ${MYBIN}/count_gene_from_refmap.py jobout/gffcompareOut/_.${gtfbase}.refmap gene > table/${prefix}.gene.count \
+    python ${MYBIN}/count_gene_from_tmap.py jobout/gffcompareOut/_.${gtfbase}.tmap gene > table/${prefix}.gene.count \
  && awk -v genome=${genome} -v tissue=${tissue} -v treatment=${treatment} -v sizebin=${sizebin} \
         'BEGIN{FS=OFS="\t"}{printf "%s\t%s\t%s\t%s\t%s\t%f\n", genome, tissue, treatment, sizebin, $1, $2}' table/${prefix}.gene.count >> table/gene.counts.melted.tsv \
  && python ${MYBIN}/count_gene_from_refmap.py jobout/gffcompareOut/_.${gtfbase}.refmap mRNA > table/${prefix}.mRNA.count \

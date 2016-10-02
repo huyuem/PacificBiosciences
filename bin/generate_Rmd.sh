@@ -96,11 +96,11 @@ ggplot(flnc_sizes) +
     ylab('density') +
     theme_bw()
 ggplot(flnc_sizes) + 
-    geom_line(aes(size, y=..count.., colour=treatment), lwd = 1.15, stat="density") +
+    geom_freqpoly(aes(size, y=..count.., colour=treatment), lwd = 1.15, binwidth = 5) +
     scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
     facet_grid(sizebin ~ tissue) +
     xlim(0, median(flnc_sizes\$size) * 3) +
-    xlab('length(nt) of flnc') +
+    xlab(paste('length(nt) of flnc, bin width: ', 5)) +
     ylab('count') +
     theme_bw()
 \`\`\`
@@ -162,7 +162,7 @@ gene_counts1 = gene_counts %>% spread(treatment, counts, fill=0)
 Names = colnames(gene_counts1)[-c(1,2,3,4)] # skip genome, tissue, size_bin, name
 Samplesize = length(Names)
 # only run pair wise scatter plot when the sample size is less than 5
-if (Samplesize <= 4) {
+if (Samplesize > 1 && Samplesize <= 4) {
     AllPairs = combn(Names, 2)
     for(p in 1:ncol(AllPairs)) {
         X = AllPairs[1, p]
@@ -182,10 +182,12 @@ if (Samplesize <= 4) {
 } 
 
 # corrplot
-gene_counts2 = gene_counts1[,-c(1,2,3,4)]
-gene_counts3 = gene_counts2[apply(gene_counts2,1,sum) > ncol(gene_counts2), ] # average count has to be at least 1
-datacor = cor(as.matrix(gene_counts3), use="complete.obs", method="pearson")
-corrplot(datacor, order="hclust", tl.col="black", tl.srt=45, method="number", mar=c(0,0,2,0), title="Correlation of gene counts")
+if(Samplesize > 1) {
+    gene_counts2 = gene_counts1[,-c(1,2,3,4)]
+    gene_counts3 = gene_counts2[apply(gene_counts2,1,sum) > ncol(gene_counts2), ] # average count has to be at least 1
+    datacor = cor(as.matrix(gene_counts3), use="complete.obs", method="pearson")
+    corrplot(datacor, order="hclust", tl.col="black", tl.srt=45, method="number", mar=c(0,0,2,0), title="Correlation of gene counts")
+}
 \`\`\`
 
 #### mRNA level
