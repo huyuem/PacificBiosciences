@@ -1,7 +1,7 @@
 # directories, user specific
 declare -x SMRT_HOME='/pbi/analysis/smrtportal/beta/install/smrtanalysis_2.3.0.140936'
 # the following directories need write permission of the first R library and genome user.
-declare -x RLIBDIR='/home/bhan/Rlib'
+declare -x RLIBDIR="${HOME}/Rlib"
 declare -x ANNOTATION_DIR='/home/bhan/annotation/'
 # declare -x ANNOTATION_DIR='/home/bhan/jobs/tmp'
 
