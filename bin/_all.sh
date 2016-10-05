@@ -79,9 +79,9 @@ echo -e "${FONT_COLOR_RESET}"
 # Config #
 ##########
 declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' 'picard' \
-                            'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'faSize' 'bedToBigBedl' 'colmerge' \
+                            'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'bedToBigBed' 'colmerge' \
                             'bedToGenePred' 'genePredToGtf' 'gffcompare' 'cuffmerge' 'mrna_size_from_gff' \
-                            'bedGraphToBigWig' 'computeMatrix' 'computeMatrix' 'Rscript' \
+                            'bedGraphToBigWig' 'computeMatrix' 'computeMatrix' \
                             )
 
 #############################
