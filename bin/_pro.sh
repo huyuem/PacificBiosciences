@@ -40,8 +40,8 @@
 #########
 # Basic #
 #########
-declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.2.1.161005
+declare -r MODULE_NAME=Prokaryotic
+declare -r MODULE_VERSION=0.0.1.161005
 
 #########
 # Const #
@@ -57,6 +57,8 @@ ${PACKAGE_NAME}::${MODULE_NAME}
 ======================================================
 Run CCS + IsoSeq Classify + IsoAux + Cluster + Reports
 ======================================================
+
+For Prokaryotic species (aka, no intron).
 
 OPTIONS:
         -h      Show usage
@@ -78,16 +80,16 @@ echo -e "${FONT_COLOR_RESET}"
 ##########
 # Config #
 ##########
-declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' 'picard' \
+declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'bwa' 'samtools' 'picard' \
                             'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'bedToBigBed' 'colmerge' \
-                            'bedToGenePred' 'genePredToGtf' 'gffcompare' 'cuffmerge' 'mrna_size_from_gff' \
+                            'bedToGenePred' 'genePredToGtf' \
                             'bedGraphToBigWig' 'computeMatrix' 'computeMatrix' \
                             )
 
 #############################
 # ARGS reading and checking #
 #############################
-while getopts "hvc:o:t:J:E:D" OPTION; do
+while getopts "hvc:o:t:J:E:DP" OPTION; do
     case $OPTION in
         h)  usage && exit 0 ;;
         v)  echo ${PACKAGE_NAME}::${MODULE_NAME} v${MODULE_VERSION} && exit 0;;
@@ -149,9 +151,9 @@ for i in $(seq 0 $((SampleSize-1))); do
     declare genomefa=${ANNOTATION_DIR}/${genome}.fa
     [[ ! -f ${genomefa} ]] && echo2 "Cannot find genome fasta file ${genomefa}, please move it there or generate a symbol link" error
     
-    declare genegff=${ANNOTATION_DIR}/${genome}.genes.gtf
-    [[ ! -f ${genegff} ]] && echo2 "Cannot find transcriptome file ${genegff}, please move it there or generate a symbol link" error
-    transcriptomerefs+=(${genegff})
+    declare genebed=${ANNOTATION_DIR}/${genome}.genes.bed
+    [[ ! -f ${genebed} ]] && echo2 "Cannot find transcriptome file ${genebed}, please move it there or generate a symbol link" error
+    transcriptomerefs+=(${genebed})
     
     declare refflatfile=${ANNOTATION_DIR}/${genome}.refFlat.txt
     [[ ! -f ${refflatfile} ]] && echo2 "Cannot find refFlat file ${refflatfile}, please move it there or generate a symbol link" error
@@ -481,7 +483,7 @@ echo2 "Submit job to run gffcompare"
 # generate $gffcompare_jobid
 cat > jobs/gffcompare.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-bash ${MYBIN}/count_gene_from_gff.sh jobs/${JOBNAME}.sh ${genegff} ${genomegtffiles[@]}
+# bash ${MYBIN}/count_gene_from_gff.sh jobs/${JOBNAME}.sh ${genebed} ${genomegtffiles[@]}
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
 declare -i gffcompare_jobid=$(${SUBMIT_CMD} -o log -e log -N job_quantification -hold_jid ${gmap_job_ids} < jobs/gffcompare.sh | cut -f3 -d' ')
@@ -489,7 +491,7 @@ declare -i gffcompare_jobid=$(${SUBMIT_CMD} -o log -e log -N job_quantification 
 echo2 "Generate TSS and TES plot"
 # depends on 
 #   ${gmap_job_ids} which generate ${bigWigForwardFiles[@]} and ${bigWigReverseFiles[@]}
-declare Annotation=${genegff} # TODO: currently only one annotation is supported 
+declare Annotation=${genebed} # TODO: currently only one annotation is supported 
 declare AnnotationBed=annotation/$(basename ${Annotation%g[tf]f}bed)
 declare AnnotationWatsonBed=${AnnotationBed%bed}watson.bed
 declare AnnotationCrickBed=${AnnotationBed%bed}crick.bed

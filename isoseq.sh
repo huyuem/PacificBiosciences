@@ -70,6 +70,7 @@ function usage {
     local GREEN=$(echo -ne ${FONT_COLOR_GREEN})
     local RESET=$(echo -ne ${FONT_STYLE_RESET})
     local BOLD=$(echo -ne ${FONT_STYLE_BOLD})
+    local CYAN=$(echo -ne ${FONT_COLOR_CYAN})
     cat << EOF
 =======================${BOLD}
 ${PACKAGE_NAME}
@@ -77,12 +78,15 @@ ${RESET}=======================
 This is a pipeline to run PacBio Iso-Seq pipeline from RS II cells (primary analysis) to a final report.
 
 ${YELLOW}[ annotation ]
-    Prepare annotation files for a given genome
+    Prepare annotation files for a given eukaryotic genome
 
 ${GREEN}[ all ]
-    CCS + classify + isoaux + report
+    CCS + classify + cluster + isoaux + report for eukaryotic species
+
+${CYAN}[ pro ]
+    CCS + classify + cluster + isoaux + report for prokaryotic species
+
 ${RESET}
-more to come...
 
 EOF
 }
@@ -108,6 +112,8 @@ declare SUBPROGRAM=$(echo ${1} | tr '[A-Z]' '[a-z]')
 case $SUBPROGRAM in
     all)
         shift && bash _all.sh "$@" ;;
+    pro)
+        shift && bash _pro.sh "$@" ;;
     anno|annotation)
         shift && bash _anno.sh "$@";;
     *)
