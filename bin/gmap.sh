@@ -33,7 +33,7 @@ gmap \
 	-d ${index_name} \
 	-f samse \
 	--suboptimal-score=1 \
-	-n 0 \
+	-n 1 \
 	-z sense_force \
 	${inputfile} \
 | samtools view -bS - \
