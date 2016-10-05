@@ -33,7 +33,7 @@ def count_read_hits(file):
         tokens = line.split('\t')
         for read in tokens[3].split(','):
             counter[read] += 1
-            filedata.append([tokens[0], tokens[1], tokens[2], read])
+            filedata.append([tokens[0].strip(), tokens[1], tokens[2], read])
     return counter, filedata # can afford this in memory
 
 def count_mRNA_hits(filedata, reads_count, allowed_type = ("=", "c")):
