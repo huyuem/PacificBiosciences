@@ -28,7 +28,7 @@ def count_read_hits(file):
     for line in fh.readlines():
         tokens = line.split('\t')
         counter[tokens[3]] += 1
-        filedata.append([tokens[0], tokens[1], tokens[2], tokens[3] ])
+        filedata.append([tokens[0].strip(), tokens[1], tokens[2], tokens[3] ])
     return counter, filedata # can afford this in memory
 
 def count_mRNA_hits(filedata, reads_count, allowed_type = ("=", "c")):
