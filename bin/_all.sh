@@ -58,6 +58,12 @@ ${PACKAGE_NAME}::${MODULE_NAME}
 Run CCS + IsoSeq Classify + IsoAux + Cluster + Reports
 ======================================================
 
+For Eukaryotic species, the pipeline expects two files in the ${ANNOTATION_DIR} folder for a genome called "hg19" for example. 
+1. hg19.fa: the genome fasta file
+2. hg19.genes.gtf: transcriptome annotation in GTF format
+If you do not have permission to write in ${ANNOTATION_DIR}, prepare those files in a different directory
+and point the pipeline to that directory using option -A
+
 OPTIONS:
         -h      Show usage
         -v      Print version
@@ -67,8 +73,8 @@ ${REQUIRED}[ required ]
 ${OPTIONAL}[ optional ]
         -o      Output folder, will create if not exist. Default: ${PWD}
         -t      Number of CPU to use in each job. Default: ${DEFAULT_NUM_THREADS}
-        -J      Name of this Job
-        -E      Email address to be notified when jobs is done
+        -J      Name of this Job. Default: datetime
+        -E      Email address to be notified when jobs is done. Default: no notification
 ${ADVANCED}[ advanced ]
         -D      use debug mode (bash -x). Default: off
 EOF
@@ -78,20 +84,22 @@ echo -e "${FONT_COLOR_RESET}"
 ##########
 # Config #
 ##########
-declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'gmap' 'gmap_build' 'samtools' 'picard' \
-                            'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'bedToBigBed' 'colmerge' \
-                            'bedToGenePred' 'genePredToGtf' 'gffcompare' 'cuffmerge' 'mrna_size_from_gff' \
-                            'bedGraphToBigWig' 'computeMatrix' 'computeMatrix' \
+declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'perl' 'Rscript' \
+                            'gmap' 'gmap_build' 'samtools' 'picard' \
+                            'trim_isoseq_polyA' 'gff2refFlat' 'mrna_size_from_gff' 'colmerge' \
+                            'bedGraphToBigWig' 'bedToBigBed' 'bedToGenePred' 'faSize' 'genePredToGtf' \
+                            'gffcompare' 'computeMatrix' 'computeMatrix' \
                             )
 
 #############################
 # ARGS reading and checking #
 #############################
-while getopts "hvc:o:t:J:E:D" OPTION; do
+while getopts "hvc:o:t:J:E:DA:" OPTION; do
     case $OPTION in
         h)  usage && exit 0 ;;
         v)  echo ${PACKAGE_NAME}::${MODULE_NAME} v${MODULE_VERSION} && exit 0;;
         c)  declare -x ConfigCsvFile=$(readlink -f ${OPTARG});;
+        A)  ANNOTATION_DIR=$(readlink -f ${OPTARG});;
         o)  declare OutputDir=${OPTARG};;
         t)  declare -i Threads=${OPTARG};; 
         J)  declare -x JobName="${OPTARG}";;
@@ -154,7 +162,12 @@ for i in $(seq 0 $((SampleSize-1))); do
     transcriptomerefs+=(${genegff})
     
     declare refflatfile=${ANNOTATION_DIR}/${genome}.refFlat.txt
-    [[ ! -f ${refflatfile} ]] && echo2 "Cannot find refFlat file ${refflatfile}, please move it there or generate a symbol link" error
+    if [[ ! -f ${refflatfile} ]]; then 
+        echo2 "Cannot find refFlat file ${refflatfile}, generating it from the GTF" warning
+        refflatfile=annotation/${genome}.refFlat.txt
+        gff2refFlat ${genegff} > ${refflatfile} \
+        || echo2 "Failed to generate refFlat txt file" error
+    fi
 
     if [[ -f ${ANNOTATION_DIR}/${genome}.sizes ]]; then 
         declare genomesize=${ANNOTATION_DIR}/${genome}.sizes;

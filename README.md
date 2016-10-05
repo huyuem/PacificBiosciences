@@ -48,7 +48,7 @@ Relatively new version; missing packages will be installed automatically during 
 But it is highly recommended to install them beforehand.<br>
 ```R
 # to install those packages
-install.packages(c("readr", "dplyr", "tidyr", "rmarkdown", "corrplot", "ggplot2", "ggthemes", "plotly"))
+install.packages(c("readr", "dplyr", "tidyr", "rmarkdown", "corrplot", "ggplot2", "ggthemes"))
 ```
 
 - **MySQL**<br>
@@ -56,17 +56,19 @@ If using the `annotation` pipeline to prepare for annotation files, MySQL is req
 
 - Other tools
 
-[trim_isoseq_polyA](https://github.com/bowhan/trim_isoseq_polyA)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[trim_isoseq_polyA](https://github.com/bowhan/trim_isoseq_polyA)
 
-[mrna_size_from_gff and colmerge](https://github.com/bowhan/isoaux)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[mrna_size_from_gff and colmerge](https://github.com/bowhan/isoaux)
 
-[deepTools](https://github.com/fidelram/deepTools)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[gff2refFlat](https://github.com/bowhan/gfftools)
 
-[picard](https://broadinstitute.github.io/picard/)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[deepTools](https://github.com/fidelram/deepTools)
 
-[kent tools](https://github.com/ENCODE-DCC/kentUtils)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[picard](https://broadinstitute.github.io/picard/)
 
-[gmap and gmap_build](http://research-pub.gene.com/gmap/)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[kent tools](https://github.com/ENCODE-DCC/kentUtils)
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[gmap and gmap_build](http://research-pub.gene.com/gmap/)
 
 ## Usage
 

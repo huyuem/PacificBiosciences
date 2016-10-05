@@ -48,6 +48,15 @@ declare -r MODULE_VERSION=0.0.1.161005
 #########
 declare -ri DEFAULT_NUM_THREADS=8
 
+########################
+# Variable declaration #
+########################
+declare -x  ConfigCsvFile=""
+declare -x  OutputDir=""
+declare -xi Threads=8
+declare     JobName=""
+declare     EmailAdd=""
+
 #########
 # Usage #
 #########
@@ -58,7 +67,12 @@ ${PACKAGE_NAME}::${MODULE_NAME}
 Run CCS + IsoSeq Classify + IsoAux + Cluster + Reports
 ======================================================
 
-For Prokaryotic species (aka, no intron).
+For Prokaryotic species (aka, no intron). 
+The pipeline expects two files in the ${ANNOTATION_DIR} folder for a genome called "ecoli" for example. 
+1. ecoli.fa: the genome fasta file
+2. ecoli.genes.bed: the bed file with gene coordinates
+If you do not have permission to write in ${ANNOTATION_DIR}, prepare those files in a different directory
+and point the pipeline to that directory using option -A
 
 OPTIONS:
         -h      Show usage
@@ -68,9 +82,10 @@ ${REQUIRED}[ required ]
         -c      Config CSV file
 ${OPTIONAL}[ optional ]
         -o      Output folder, will create if not exist. Default: ${PWD}
+        -A      Annotation directory, overwriting the default directory specified in config.sh file
         -t      Number of CPU to use in each job. Default: ${DEFAULT_NUM_THREADS}
-        -J      Name of this Job
-        -E      Email address to be notified when jobs is done
+        -J      Name of this Job. Default: datetime
+        -E      Email address to be notified when jobs is done. Default: no notification
 ${ADVANCED}[ advanced ]
         -D      use debug mode (bash -x). Default: off
 EOF
@@ -80,30 +95,31 @@ echo -e "${FONT_COLOR_RESET}"
 ##########
 # Config #
 ##########
-declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'bwa' 'samtools' 'picard' \
-                            'perl' 'Rscript' 'faSize' 'trim_isoseq_polyA' 'bedToBigBed' 'colmerge' \
-                            'bedToGenePred' 'genePredToGtf' \
-                            'bedGraphToBigWig' 'computeMatrix' 'computeMatrix' \
+declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'perl' 'Rscript' \
+                            'bwa' 'samtools' 'picard' \
+                            'trim_isoseq_polyA' 'mrna_size_from_gff' 'colmerge' \
+                            'bedGraphToBigWig' 'bedToBigBed' 'bedToGenePred' 'faSize' 'genePredToGtf' \
+                            'computeMatrix' 'computeMatrix' \
                             )
 
 #############################
 # ARGS reading and checking #
 #############################
-while getopts "hvc:o:t:J:E:DP" OPTION; do
+while getopts "hvc:o:t:J:E:DA:" OPTION; do
     case $OPTION in
         h)  usage && exit 0 ;;
         v)  echo ${PACKAGE_NAME}::${MODULE_NAME} v${MODULE_VERSION} && exit 0;;
-        c)  declare -x ConfigCsvFile=$(readlink -f ${OPTARG});;
-        o)  declare OutputDir=${OPTARG};;
-        t)  declare -i Threads=${OPTARG};; 
-        J)  declare -x JobName="${OPTARG}";;
-        E)  declare EmailAdd=${OPTARG};;
+        c)  ConfigCsvFile=$(readlink -f ${OPTARG});;
+        A)  ANNOTATION_DIR=$(readlink -f ${OPTARG});;
+        o)  OutputDir=${OPTARG};;
+        t)  Threads=${OPTARG};; 
+        J)  JobName="${OPTARG}";;
+        E)  EmailAdd=${OPTARG};;
         D)  set -x;;
         *)  usage && exit 1;;
     esac
 done
 [[ -z ${ConfigCsvFile} ]] && echo2 "You have to provide a sample csv file with -c option" error
-[[ -z $Threads ]] && declare -i Threads=${DEFAULT_NUM_THREADS}
 [[ -z ${JobName} ]] && declare -x JobName="$(date)"
 
 [[ -z $OutputDir ]] && OutputDir=${RANDOM}.out
@@ -112,7 +128,7 @@ mkdir -p $OutputDir || echo2 "Don't have permission to create folder $OutputDir"
 cd $OutputDir || echo2 "Don't have permission to access folder $OutputDir" error
 ( touch a && rm -f a ) || echo2 "Don't have permission to write in folder $OutputDir" error
 
-mkdir -p annotation log jobs jobout fasta bam gff bed fofn table pdf html bigWig
+mkdir -p annotation log jobs jobout fasta bam bed fofn table pdf html bigWig
 
 for program in "${REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
 
@@ -126,19 +142,15 @@ python ${MYBIN}/parse_csv.py ${ConfigCsvFile} > jobs/${JOBNAME}.sh \
 source jobs/${JOBNAME}.sh
 
 echo2 "Submit jobs for CCS and Classify"
-declare gmap_job_ids=""
+declare bwa_job_ids=""
 declare picard_job_ids=""
-declare cluster_jobids=""
 declare -a flncfiles=()
 declare -a flncsizefiles=()
 declare -a coveragefiles=()
 declare -a genomebamfiles=()
-declare -a genomegtffiles=()
 declare -a bigWigForwardFiles=()
 declare -a bigWigReverseFiles=()
 declare -a transcriptomerefs=()
-declare -a clusterMappedGtfs=()
-# declare -a primerinfofiles=()
 for i in $(seq 0 $((SampleSize-1))); do
     declare samplename=${SampleNames[$i]}
     echo2 "Process ${samplename}"
@@ -156,7 +168,11 @@ for i in $(seq 0 $((SampleSize-1))); do
     transcriptomerefs+=(${genebed})
     
     declare refflatfile=${ANNOTATION_DIR}/${genome}.refFlat.txt
-    [[ ! -f ${refflatfile} ]] && echo2 "Cannot find refFlat file ${refflatfile}, please move it there or generate a symbol link" error
+    if [[ ! -f ${refflatfile} ]]; then
+        echo2 "Cannot find refFlat file ${refflatfile}, please move it there or generate a symbol link" warning
+        refflatfile=annotation/${genome}.refFlat.txt
+        awk 'BEGIN{FS=OFS="\t"}{printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t1\t%s,\t%s,\n", $4,$4,$1,$6,$2,$3,$2,$3,$2,$3}' ${genebed} > ${refflatfile}
+    fi
 
     if [[ -f ${ANNOTATION_DIR}/${genome}.sizes ]]; then 
         declare genomesize=${ANNOTATION_DIR}/${genome}.sizes;
@@ -175,27 +191,26 @@ EOF
         declare genomesize=annotation/${genome}.sizes.tsv
     fi
 
-    # build gmap index if not exist
-    declare gmapindex=${GMAP_INDEX_DIR}/${genome}
-    if ! gmapIndexCheck ${GMAP_INDEX_DIR} $genome; then
-        if [[ ! -f jobs/${genome}.gmapbuild.sh ]]; then
-            echo2 "cannot find gmap index ${gmapindex}, submiting a job to generate it" warning
-            cat > jobs/${genome}.gmapbuild.sh << EOF
+    # build bwa index
+    declare bwaindex=${BWA_INDEX_DIR}/${genome}
+    if ! bwaIndexCheck ${BWA_INDEX_DIR} $genome; then
+        if [[ ! -f jobs/${genome}.bwabuild.sh ]]; then
+            echo2 "cannot find bwa index ${bwaindex}, submiting a job to generate it" warning
+            cat > jobs/${genome}.bwabuild.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-mkdir -p ${GMAP_INDEX_DIR}/${genome} \
-&& gmap_build -d ${genome} -D ${GMAP_INDEX_DIR} ${genomefa}
+bwa index -p annotation/$(basename ${genomefa}) ${genomefa}
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-            declare gmap_build_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${genome}.gmapbuild < jobs/${genome}.gmapbuild.sh | cut -f3 -d' ')
-        else # already jobs/${genome}.gmapbuild.sh file
-            echo2 "cannot find gmap index ${gmapindex}, but looks like a job has been submit to generate it" warning
+            declare bwa_build_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${genome}.bwabuild < jobs/${genome}.bwabuild.sh | cut -f3 -d' ')
+        else # already jobs/${genome}.bwabuild.sh file
+            echo2 "cannot find bwa index ${bwaindex}, but looks like a job has been submit to generate it" warning
         fi
     else
-        echo2 "Use existing gmap index ${gmapindex}"
-        declare gmap_build_jobid=""
+        echo2 "Use existing bwa index ${bwaindex}"
+        declare bwa_build_jobid=""
     fi
 
-    declare genome_preparation_jobid=${genome_size_jid}${gmap_build_jobid}
+    declare genome_preparation_jobid=${genome_size_jid}${bwa_build_jobid}
     # barcoded?
     if [[ ${barcode_id} == 'NA' ]]; then
         echo2 "${samplename} has no barcode"
@@ -308,14 +323,14 @@ fi
 EOF
 
         declare -i rename_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.rename -hold_jid ${ccsclassify_jobid} < jobs/${samplename}.rename.sh | cut -f3 -d' ')
-        declare gmap_ready=${genome_preparation_jobid},${rename_jobid}
+        declare bwa_ready=${genome_preparation_jobid},${rename_jobid}
     else
-        declare gmap_ready=${genome_preparation_jobid},${ccsclassify_jobid}
+        declare bwa_ready=${genome_preparation_jobid},${ccsclassify_jobid}
     fi
 
-    # 2. Run gmap alignemnt
-    echo2 "Submit polyA trimming and gmap job"
-    cat > jobs/${samplename}.gmap.sh << EOF
+    # 2. Run bwa alignemnt
+    echo2 "Submit polyA trimming and bwa job"
+    cat > jobs/${samplename}.bwa.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 if [[ ! -f fasta/${samplename}.isoseq_flnc.trima.fa ]]; then
 trim_isoseq_polyA -t ${Threads} \
@@ -331,10 +346,9 @@ faSize -detailed -tab \
 fi
 
 if [[ ! -f bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam ]]; then
-bash ${MYBIN}/gmap.sh \
+bash ${MYBIN}/bwa.sh \
     fasta/${samplename}.isoseq_flnc.trima.fa \
-    ${GMAP_INDEX_DIR} \
-    ${genome} \
+    ${bwaindex} \
     ${Threads}
 fi
 
@@ -347,11 +361,11 @@ if [[ ! -f bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed \
         > bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed
 fi
 
-if [[ ! -f gff/${samplename}.isoseq_flnc.trima.${genome}.gtf \
-    &&  -f bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed ]]; then
-    bedToGenePred bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed /dev/stdout \
-    | genePredToGtf file /dev/stdin gff/${samplename}.isoseq_flnc.trima.${genome}.gtf
-fi
+# if [[ ! -f gff/${samplename}.isoseq_flnc.trima.${genome}.gtf \
+#     &&  -f bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed ]]; then
+#     bedToGenePred bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed /dev/stdout \
+#     | genePredToGtf file /dev/stdin gff/${samplename}.isoseq_flnc.trima.${genome}.gtf
+# fi
 
 if [[ ! -f bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.bw \
    || ! -f bigWig/${samplename}.isoseq_flnc.trima.${genome}.Reverse.bw ]]; then
@@ -385,8 +399,8 @@ if [[ ! -f bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.bw \
 fi
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-    declare -i gmap_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.gmap -hold_jid ${gmap_ready} < jobs/${samplename}.gmap.sh | cut -f3 -d' ')
-    gmap_job_ids=${gmap_jobid},${gmap_job_ids}
+    declare -i bwa_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.bwa -hold_jid ${bwa_ready} < jobs/${samplename}.bwa.sh | cut -f3 -d' ')
+    bwa_job_ids=${bwa_jobid},${bwa_job_ids}
 
 # draw coverage plot 
     cat > jobs/${samplename}.CollectRnaSeqMetrics.sh << EOF
@@ -403,70 +417,21 @@ awk 'BEGIN{FS=OFS="\t"}{if(\$1>0 && \$1<101) print \$1,\$2}' table/${samplename}
     > table/${samplename}.isoseq_flnc.trima.coverage.tsv
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-    declare -i piccard_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.picard -hold_jid ${gmap_jobid} < jobs/${samplename}.CollectRnaSeqMetrics.sh | cut -f3 -d' ')
+    declare -i piccard_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.picard -hold_jid ${bwa_jobid} < jobs/${samplename}.CollectRnaSeqMetrics.sh | cut -f3 -d' ')
     picard_job_ids=${piccard_jobid},${picard_job_ids}
 # clean up
     flncfiles+=("fasta/${samplename}.isoseq_flnc.trima.fa")
     flncsizefiles+=("table/${samplename}.isoseq_flnc.trima.sizes")
     coveragefiles+=(" table/${samplename}.isoseq_flnc.trima.coverage.tsv")
     genomebamfiles+=("bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam")
-    genomegtffiles+=("gff/${samplename}.isoseq_flnc.trima.${genome}.gtf")
     bigWigForwardFiles+=("bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.bw")
     bigWigReverseFiles+=("bigWig/${samplename}.isoseq_flnc.trima.${genome}.Reverse.bw")
-
-    # 4. run Cluster
-    #  
-    cat > jobs/${samplename}.Cluster.sh << EOF
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-if [[ ! -s jobout/${samplename}.clusterOut/all_quivered_hq.100_30_0.99.fasta ]]; then
-    $SMRT_HOME/smrtcmds/bin/smrtshell -c \
-        "pbtranscript.py cluster \
-            fasta/${samplename}.isoseq_flnc.trima.fa \
-            fasta/${samplename}.final.consensus.fa \
-            --nfl_fa fasta/${samplename}.isoseq_nfl.fasta \
-            -d jobout/${samplename}.clusterOut \
-            --ccs_fofn fofn/${ccsname}.reads_of_insert.fofn \
-            --bas_fofn fofn/${ccsname}.bax.fofn \
-            --cDNA_size under1k \
-            --quiver \
-            --blasr_nproc ${Threads} \
-            --quiver_nproc ${Threads} "
-fi
-
-if [[ ! -f fasta/${samplename}.all_quivered_hq.100_30_0.99.fasta \
-     && -s jobout/${samplename}.clusterOut/all_quivered_hq.100_30_0.99.fasta ]]; then
-    ln -s \
-        $PWD/jobout/${samplename}.clusterOut/all_quivered_hq.100_30_0.99.fasta \
-        fasta/${samplename}.all_quivered_hq.100_30_0.99.fasta
-fi
-
-if [[ ! -f bam/${samplename}.all_quivered_hq.100_30_0.99.${genome}.sorted.bam \
-     && -f fasta/${samplename}.all_quivered_hq.100_30_0.99.fasta ]]; then
-    bash ${MYBIN}/gmap.sh \
-        fasta/${samplename}.all_quivered_hq.100_30_0.99.fasta \
-        ${GMAP_INDEX_DIR} \
-        ${genome} \
-        ${Threads}
-fi
-
-# convert bam to gtf
-if [[ ! -f gff/${samplename}.all_quivered_hq.100_30_0.99.${genome}.gtf \
-     && -f bam/${samplename}.all_quivered_hq.100_30_0.99.${genome}.sorted.bam ]]; then
-    bedtools bamtobed -bed12 -split -i bam/${samplename}.all_quivered_hq.100_30_0.99.${genome}.sorted.bam \
-        | bedToGenePred /dev/stdin /dev/stdout \
-        | genePredToGtf file /dev/stdin gff/${samplename}.all_quivered_hq.100_30_0.99.${genome}.gtf
-fi
-#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-EOF
-    declare -i cluster_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${samplename}.cluster -hold_jid ${ccsclassify_jobid} < jobs/${samplename}.Cluster.sh | cut -f3 -d' ')
-    cluster_jobids=${cluster_jobid},${cluster_jobids}
-    clusterMappedGtfs+=( gff/${samplename}.all_quivered_hq.100_30_0.99.${genome}.gtf )
 
 done # end of for i in $(seq 0 $((SampleSize-1)))
 
 echo2 "Submit job to draw length distribution on the flnc files"
 # depends on
-#   ${gmap_job_ids} which generate trimmed flnc files
+#   ${bwa_job_ids} which generate trimmed flnc files
 cat > jobs/size.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 if [[ ! -f table/draw_size_dis.Done ]]; then
@@ -475,24 +440,13 @@ if [[ ! -f table/draw_size_dis.Done ]]; then
 fi
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-declare -i size_dis_jobid=$(${SUBMIT_CMD} -o log -e log -N job_size -hold_jid ${gmap_job_ids} < jobs/size.sh | cut -f3 -d' ')
-
-echo2 "Submit job to run gffcompare"
-# depends on 
-#   $gmap_job_ids for bam/gff files
-# generate $gffcompare_jobid
-cat > jobs/gffcompare.sh << EOF
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# bash ${MYBIN}/count_gene_from_gff.sh jobs/${JOBNAME}.sh ${genebed} ${genomegtffiles[@]}
-#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-EOF
-declare -i gffcompare_jobid=$(${SUBMIT_CMD} -o log -e log -N job_quantification -hold_jid ${gmap_job_ids} < jobs/gffcompare.sh | cut -f3 -d' ')
+declare -i size_dis_jobid=$(${SUBMIT_CMD} -o log -e log -N job_size -hold_jid ${bwa_job_ids} < jobs/size.sh | cut -f3 -d' ')
 
 echo2 "Generate TSS and TES plot"
 # depends on 
-#   ${gmap_job_ids} which generate ${bigWigForwardFiles[@]} and ${bigWigReverseFiles[@]}
+#   ${bwa_job_ids} which generate ${bigWigForwardFiles[@]} and ${bigWigReverseFiles[@]}
 declare Annotation=${genebed} # TODO: currently only one annotation is supported 
-declare AnnotationBed=annotation/$(basename ${Annotation%g[tf]f}bed)
+declare AnnotationBed=annotation/$(basename ${genebed})
 declare AnnotationWatsonBed=${AnnotationBed%bed}watson.bed
 declare AnnotationCrickBed=${AnnotationBed%bed}crick.bed
 rm -f fofn/bam.fofn
@@ -502,16 +456,13 @@ done
 cat > jobs/TSSTES.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # generate gennotation bed file from gtf
-if [[ ! -f ${AnnotationBed} ]]; then
-    gtfToGenePred ${Annotation} /dev/stdout \
-  | genePredToBed /dev/stdin ${AnnotationBed}
-fi
+
 if [[ ! -f ${AnnotationBed%bed}watson.bed ]]; then
-    awk '\$6=="+"' ${AnnotationBed} > ${AnnotationWatsonBed}
+    awk '\$6=="+"' ${Annotation} > ${AnnotationWatsonBed}
 fi
 
 if [[ ! -f ${AnnotationBed%bed}crick.bed ]]; then
-    awk '\$6=="-"' ${AnnotationBed} > ${AnnotationCrickBed}
+    awk '\$6=="-"' ${Annotation} > ${AnnotationCrickBed}
 fi
 
 if [[ ! -f pdf/TSS.crick.png \
@@ -532,7 +483,7 @@ fi
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
 
-declare -i tss_tes_report=$(${SUBMIT_CMD} -o log -e log -N job_TSSTES -hold_jid ${gmap_job_ids} < jobs/TSSTES.sh | cut -f3 -d' ')
+declare -i tss_tes_report=$(${SUBMIT_CMD} -o log -e log -N job_TSSTES -hold_jid ${bwa_job_ids} < jobs/TSSTES.sh | cut -f3 -d' ')
 
 
 # coverage plot
@@ -543,73 +494,6 @@ bash ${MYBIN}/draw_coverage.sh ${coveragefiles[@]}
 EOF
 declare -i coverage_report=$(${SUBMIT_CMD} -o log -e log -N job_coverage -hold_jid ${picard_job_ids} < jobs/coverage.sh | cut -f3 -d' ')
 
-# post clustering, compare annotation with gffcompare
-echo -e ${clusterMappedGtfs[@]} | tr ' ' '\n' > fofn/cluster_mapped_gtf.fofn
-cat > jobs/gffcompare.sh << EOF
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-mkdir -p jobout/clusterGffcompareOut
-
-if [[ ! -f jobout/clusterGffcompareOut/gffcompare.Done ]]; then
-    gffcompare -G -D \
-        -r ${Annotation} \
-        -o jobout/clusterGffcompareOut/gffcompare \
-        ${clusterMappedGtfs[@]} \
-    && touch jobout/clusterGffcompareOut/gffcompare.Done
-fi
-
-if [[ ! -f gff/gffcompare.combined.gtf \
-   &&   -f jobout/clusterGffcompareOut/gffcompare.combined.gtf ]]; then
-    ln -s $PWD/jobout/clusterGffcompareOut/gffcompare.combined.gtf gff/gffcompare.combined.gtf
-fi
-
-if [[ ! -f gffcompare.combined.chained.code.bb \
-   &&   -f gff/gffcompare.combined.gtf ]]; then
-    gtfToGenePred \
-        gff/gffcompare.combined.gtf \
-        /dev/stdout \
-    | genePredToBed \
-        /dev/stdin \
-        /dev/stdout \
-    | bedSort \
-        /dev/stdin \
-        bed/gffcompare.combined.bed.temp \
-    && gawk 'BEGIN{FS=OFS="\t"}{ \
-        if(ARGIND==1){ \
-            h[\$1]=\$4; \
-        } else { \
-             if(h[\$4]=="=") \$9="0,0,0"; \
-        else if(h[\$4]=="c") \$9="230,159,0"; \
-        else if(h[\$4]=="j") \$9="255,0,0"; \
-        else if(h[\$4]=="e") \$9="0,114,178"; \
-        else if(h[\$4]=="i") \$9="0,158,115"; \
-        else if(h[\$4]=="o") \$9="240,228,66"; \
-        else if(h[\$4]=="x") \$9="213,94,0"; \
-        else                 \$9="204,121,167"; \
-        \$4=h[\$4]\$4; \
-        print \$0}}' \
-        jobout/clusterGffcompareOut/gffcompare.tracking \
-        bed/gffcompare.combined.bed.temp \
-        > bed/gffcompare.combined.bed \
-    && bedToBigBed \
-        bed/gffcompare.combined.bed \
-        ${genomesize} \
-        bed/gffcompare.combined.chained.code.bb
-fi
-
-# if [[ ! -f jobout/clusterCuffmergeOut/Done ]]; then
-#     cuffmerge \
-#         -p ${Threads} \
-#         -g ${Annotation} \
-#         -s ${genomefa} \
-#         -o jobout/clusterCuffmergeOut \
-#         fofn/cluster_mapped_gtf.fofn \
-#     && ln -s $PWD/jobout/clusterCuffmergeOut/merged.gtf gff/Cuffmerged.gtf \
-#     && touch jobout/clusterCuffmergeOut/Done
-# fi
-#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-EOF
-declare -i gffcompare_job=$(${SUBMIT_CMD} -o log -e log -N job_gffcompare -hold_jid ${cluster_jobids} < jobs/gffcompare.sh | cut -f3 -d' ')
-
 # generate final report
 echo2 "Generate final report"
 # depends on 
@@ -619,10 +503,10 @@ echo2 "Generate final report"
 # generate ${final_html_report}
 cat > jobs/html_report.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-bash ${MYBIN}/generate_Rmd.sh
+bash ${MYBIN}/generate_Rmd_for_prok.sh
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${gffcompare_jobid},${size_dis_jobid},${tss_tes_report},${coverage_report} < jobs/html_report.sh | cut -f3 -d' ')
+declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${size_dis_jobid},${tss_tes_report},${coverage_report} < jobs/html_report.sh | cut -f3 -d' ')
 
 # send notification
 declare last_job=${gffcompare_job},${final_html_report}

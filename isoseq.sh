@@ -103,7 +103,8 @@ for program in "${GLOBAL_REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
 declare -a GLOBAL_REQUIRED_DIRVAR=( 'RLIBDIR' 'SMRT_HOME' 'ANNOTATION_DIR' )
 declare -x INDEX_DIR=${ANNOTATION_DIR}/index
 declare -x GMAP_INDEX_DIR=${INDEX_DIR}/gmap_index
-mkdir -p ${GMAP_INDEX_DIR}
+declare -x BWA_INDEX_DIR=${INDEX_DIR}/bwa_index
+mkdir -p ${GMAP_INDEX_DIR} ${BWA_INDEX_DIR}
 
 ########
 # Args #

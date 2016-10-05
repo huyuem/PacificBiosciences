@@ -108,3 +108,13 @@ function gmapIndexCheck {
     return 0;
 }
 export -f gmapIndexCheck
+
+function bwaIndexCheck {
+    [[ ! -f ${1}.amb ]] && return 1
+    [[ ! -f ${1}.ann ]] && return 1
+    [[ ! -f ${1}.bwt ]] && return 1
+    [[ ! -f ${1}.pac ]] && return 1
+    [[ ! -f ${1}.sa ]]  && return 1
+    return 0;
+}
+export -f bwaIndexCheck
