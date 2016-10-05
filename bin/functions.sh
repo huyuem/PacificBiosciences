@@ -52,7 +52,7 @@ function echo2 {
 export -f echo2
 
 function binCheck {
-    local program_path=$(which $1 2>/dev/null)
+    which $1 2>/dev/null
     if [[ $? -ne 0 ]]; then echo2 "Required program \"$1\" is not available" error; fi
 }
 export -f binCheck
