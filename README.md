@@ -110,6 +110,11 @@ Only libraries in the same size bins are compared directly. <br>
 <u>5. **Path to the RS II cells**</u><br>
 - The complete, ABSOLUTE path to the RS II cells (usually named as [A-Z]0[12]_1). <br>
 - At least three `bax.h5` files are expected in the `Analysis_Results` subdirectory.<br>
+- There can only be input one path, thus for samples with more than one smrtcells, the user will need to create a dummy folder with symbol links to all the `.h5` files in different smrtcells; the pipeline has provided a module for doing this:<br>
+```bash
+    isoseq.sh gather -o /path/to/dummy_cell -i /path/to/cell1 -i /path/to/cell2 -i /path/to/cell3 ...
+    # then the user should put "/path/to/dummy_cell" in the sample.csv file
+```
 
 <u>6. **Path to the custom (barcode) sequence file**</u><br>
 - The absolute path to a fasta file with custom barcode sequence. 

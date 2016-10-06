@@ -169,7 +169,7 @@ for i in $(seq 0 $((SampleSize-1))); do
     
     declare refflatfile=${ANNOTATION_DIR}/${genome}.refFlat.txt
     if [[ ! -f ${refflatfile} ]]; then
-        echo2 "Cannot find refFlat file ${refflatfile}, please move it there or generate a symbol link" warning
+        echo2 "Cannot find refFlat file ${refflatfile}, generating one from the bed" warning
         refflatfile=annotation/${genome}.refFlat.txt
         awk 'BEGIN{FS=OFS="\t"}{printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t1\t%s,\t%s,\n", $4,$4,$1,$6,$2,$3,$2,$3,$2,$3}' ${genebed} > ${refflatfile}
     fi
