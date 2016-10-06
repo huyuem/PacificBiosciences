@@ -71,6 +71,7 @@ function usage {
     local RESET=$(echo -ne ${FONT_STYLE_RESET})
     local BOLD=$(echo -ne ${FONT_STYLE_BOLD})
     local CYAN=$(echo -ne ${FONT_COLOR_CYAN})
+    local MAGENTA=$(echo -ne ${FONT_COLOR_MAGENTA})
     cat << EOF
 =======================${BOLD}
 ${PACKAGE_NAME}
@@ -79,12 +80,31 @@ This is a pipeline to run PacBio Iso-Seq pipeline from RS II cells (primary anal
 
 ${YELLOW}[ annotation ]
     Prepare annotation files for a given eukaryotic genome
+    usage:
+        isoseq.sh anno -g hg38
+        isoseq.sh anno -g mm10
+        isoseq.sh anno -g dm6
+    "isoseq.sh anno -h" for detailed usage
+
 
 ${GREEN}[ all ]
     CCS + classify + cluster + isoaux + report for eukaryotic species
+    usage:
+        isoseq.sh all -c sample_info.csv -o my_output -J my_job_name -E my@email.com
+    "isoseq.sh all -h" for detailed usage
 
 ${CYAN}[ pro ]
     CCS + classify + cluster + isoaux + report for prokaryotic species
+    usage:
+        isoseq.sh all -c sample_info.csv -o my_output -J my_job_name -E my@email.com
+    "isoseq.sh pro -h" for detailed usage
+
+${MAGENTA}[ gather ]
+    For sample sequenced with more than one cells, the user need to run this module
+    to gather all the data into a new directory, which is then used in the csv file
+    usage:
+        isoseq.sh gather -o /path/to/new_cell -i /path/to/cell1 -i /path/to/cell2 -i /path/to/cell3
+    Then use /path/to/new_cell in the sample.csv file for "all" or "pro" modules
 
 ${RESET}
 
@@ -104,7 +124,7 @@ declare -a GLOBAL_REQUIRED_DIRVAR=( 'RLIBDIR' 'SMRT_HOME' 'ANNOTATION_DIR' )
 declare -x INDEX_DIR=${ANNOTATION_DIR}/index
 declare -x GMAP_INDEX_DIR=${INDEX_DIR}/gmap_index
 declare -x BWA_INDEX_DIR=${INDEX_DIR}/bwa_index
-mkdir -p ${GMAP_INDEX_DIR} ${BWA_INDEX_DIR}
+# mkdir -p ${GMAP_INDEX_DIR} ${BWA_INDEX_DIR}
 
 ########
 # Args #
@@ -117,6 +137,8 @@ case $SUBPROGRAM in
         shift && bash _pro.sh "$@" ;;
     anno|annotation)
         shift && bash _anno.sh "$@";;
+    gather)
+        shift && bash _gather.sh "$@";;
     *)
         echo2 "unrecognized option \"${1}\"" error;;
 esac

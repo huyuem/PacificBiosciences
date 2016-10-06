@@ -52,8 +52,9 @@ function echo2 {
 export -f echo2
 
 function binCheck {
-    which $1 &>/dev/null
-    if [[ $? -ne 0 ]]; then echo2 "Required program \"$1\" is not available" error; fi
+    if ! which $1 &>/dev/null; then
+        echo2 "Required program \"$1\" is not available" error; 
+    fi
 }
 export -f binCheck
 
