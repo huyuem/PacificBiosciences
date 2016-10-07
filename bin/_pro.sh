@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=Prokaryotic
-declare -r MODULE_VERSION=0.0.1.161005
+declare -r MODULE_VERSION=0.0.2.161006
 
 #########
 # Const #
