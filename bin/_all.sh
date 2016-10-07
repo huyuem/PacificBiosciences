@@ -48,6 +48,18 @@ declare -r MODULE_VERSION=0.2.2.161005
 #########
 declare -ri DEFAULT_NUM_THREADS=8
 
+########################
+# Variable declaration #
+########################
+declare -x  ConfigCsvFile
+declare -x  OutputDir
+declare -xi Threads=8
+declare -x  JobName
+declare -x  EmailAdd
+declare     FTPAddress
+declare     FTPUsername
+declare     FTPPassword
+
 #########
 # Usage #
 #########
@@ -75,6 +87,12 @@ ${OPTIONAL}[ optional ]
         -t      Number of CPU to use in each job. Default: ${DEFAULT_NUM_THREADS}
         -J      Name of this Job. Default: datetime
         -E      Email address to be notified when jobs is done. Default: no notification
+FTP settings
+If all three of them are provided, the pipeline will upload bam/bigWig/bigBed files to this FTP,
+and generate UCSC genome browser tracks.
+        -F      FTP address
+        -U      FTP username
+        -P      FTP password
 ${ADVANCED}[ advanced ]
         -D      use debug mode (bash -x). Default: off
 EOF
@@ -94,22 +112,24 @@ declare -a REQUIRED_PROGRAMS=('smrtshell' 'readlink' 'find' 'perl' 'Rscript' \
 #############################
 # ARGS reading and checking #
 #############################
-while getopts "hvc:o:t:J:E:DA:" OPTION; do
+while getopts "hvc:o:t:J:E:DA:F:U:P:" OPTION; do
     case $OPTION in
         h)  usage && exit 0 ;;
         v)  echo ${PACKAGE_NAME}::${MODULE_NAME} v${MODULE_VERSION} && exit 0;;
-        c)  declare -x ConfigCsvFile=$(readlink -f ${OPTARG});;
+        c)  ConfigCsvFile=$(readlink -f ${OPTARG});;
         A)  ANNOTATION_DIR=$(readlink -f ${OPTARG});;
-        o)  declare OutputDir=${OPTARG};;
-        t)  declare -i Threads=${OPTARG};; 
-        J)  declare -x JobName="${OPTARG}";;
-        E)  declare EmailAdd=${OPTARG};;
+        o)  OutputDir=${OPTARG};;
+        t)  Threads=${OPTARG};; 
+        J)  JobName="${OPTARG}";;
+        E)  EmailAdd=${OPTARG};;
+        F)  FTPAddress=${OPTARG};;
+        U)  FTPUsername=${OPTARG};;
+        P)  FTPPassword=${OPTARG};;
         D)  set -x;;
         *)  usage && exit 1;;
     esac
 done
 [[ -z ${ConfigCsvFile} ]] && echo2 "You have to provide a sample csv file with -c option" error
-[[ -z $Threads ]] && declare -i Threads=${DEFAULT_NUM_THREADS}
 [[ -z ${JobName} ]] && declare -x JobName="$(date)"
 
 [[ -z $OutputDir ]] && OutputDir=${RANDOM}.out
@@ -118,7 +138,7 @@ mkdir -p $OutputDir || echo2 "Don't have permission to create folder $OutputDir"
 cd $OutputDir || echo2 "Don't have permission to access folder $OutputDir" error
 ( touch a && rm -f a ) || echo2 "Don't have permission to write in folder $OutputDir" error
 
-mkdir -p annotation log jobs jobout fasta bam gff bed fofn table pdf html bigWig
+mkdir -p annotation log jobs jobout fasta bam gff bed fofn table pdf html bigWig track
 
 for program in "${REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
 
@@ -642,8 +662,25 @@ bash ${MYBIN}/generate_Rmd.sh
 EOF
 declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${gffcompare_jobid},${size_dis_jobid},${tss_tes_report},${coverage_report} < jobs/html_report.sh | cut -f3 -d' ')
 
-# send notification
+
+# getting ready to finish
 declare last_job=${gffcompare_job},${final_html_report}
+# upload to ftp
+if [[ ! -z ${FTPAddress} \
+   && ! -z ${FTPUsername} \
+   && ! -z ${FTPPassword} ]] ; then
+   cat > jobs/ftp_upload_and_track.sh 
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+( cd bam;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JOBNAME *bam 1> ../track/UCSC.genome_browser.tracks)
+( cd bed;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JOBNAME *bb  1> ../track/UCSC.genome_browser.tracks)
+( cd bigWig; bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JOBNAME *bw  1> ../track/UCSC.genome_browser.tracks)
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
+    declare -i ftpjob=$(${SUBMIT_CMD} -o log -e log -N job_gffcompare -hold_jid ${last_job} < jobs/gffcompare.sh | cut -f3 -d' ')
+    last_job=${ftpjob}
+fi     
+
+# send notification
 if [[ ! -z ${EmailAdd} ]]; then
     echo "bash ${MYBIN}/send_mail.sh \"${JobName}\" ${OutDirFull} ${EmailAdd}" \
     | declare -i notify_jobid=$(${SUBMIT_CMD} -o log -e log -N notify_done -hold_jid ${last_job} | cut -f3 -d' ')
