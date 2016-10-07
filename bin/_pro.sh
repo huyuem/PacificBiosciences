@@ -196,9 +196,10 @@ EOF
     if ! bwaIndexCheck ${BWA_INDEX_DIR} $genome; then
         if [[ ! -f jobs/${genome}.bwabuild.sh ]]; then
             echo2 "cannot find bwa index ${bwaindex}, submiting a job to generate it" warning
+            bwaindex=annotation/$(basename ${genomefa})
             cat > jobs/${genome}.bwabuild.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-bwa index -p annotation/$(basename ${genomefa}) ${genomefa}
+bwa index -p ${bwaindex} ${genomefa}
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
             declare bwa_build_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${genome}.bwabuild < jobs/${genome}.bwabuild.sh | cut -f3 -d' ')
