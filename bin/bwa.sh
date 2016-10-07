@@ -12,11 +12,11 @@ threads=${3:-8}
 
 function _bwaIndexCheck {
     [[ $# -ne 1 ]] && return 255;
-    [[ ! -f ${1}.bwa ]] && return 1;
-    [[ ! -f ${1}.pac ]] && return 1;
-    [[ ! -f ${1}.ann ]] && return 1;
-    [[ ! -f ${1}.amb ]] && return 1;
-    [[ ! -f ${1}.sa  ]] && return 1;
+    [[ ! -f ${1}.amb ]] && return 1
+    [[ ! -f ${1}.ann ]] && return 1
+    [[ ! -f ${1}.bwt ]] && return 1
+    [[ ! -f ${1}.pac ]] && return 1
+    [[ ! -f ${1}.sa ]]  && return 1
     return 0;
 }
 	

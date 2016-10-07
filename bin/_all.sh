@@ -163,10 +163,12 @@ for i in $(seq 0 $((SampleSize-1))); do
     
     declare refflatfile=${ANNOTATION_DIR}/${genome}.refFlat.txt
     if [[ ! -f ${refflatfile} ]]; then 
-        echo2 "Cannot find refFlat file ${refflatfile}, generating it from the GTF" warning
         refflatfile=annotation/${genome}.refFlat.txt
-        gff2refFlat ${genegff} > ${refflatfile} \
-        || echo2 "Failed to generate refFlat txt file" error
+        if [[ ! -f ${refflatfile} ]]; then 
+            echo2 "Cannot find refFlat file ${refflatfile}, generating it from the GTF" warning
+            gff2refFlat ${genegff} > ${refflatfile} \
+            || echo2 "Failed to generate refFlat txt file" error
+        fi
     fi
 
     if [[ -f ${ANNOTATION_DIR}/${genome}.sizes ]]; then 
