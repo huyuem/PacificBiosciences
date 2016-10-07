@@ -80,6 +80,17 @@ function isDir {
 }
 export -f isDir
 
+function dirWritable {
+    [[ $# -ne 1 ]] && return 255
+    if touch "${1}"/_test_writable &>/dev/null; then
+        rm -f "${1}"/_test_writable
+        return 0
+    else
+        return 1
+    fi
+}
+export -f dirWritable
+
 function indexOf {
     local element
     local i=0

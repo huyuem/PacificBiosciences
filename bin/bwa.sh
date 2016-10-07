@@ -11,7 +11,7 @@ index_name=${2}
 threads=${3:-8}
 
 function _bwaIndexCheck {
-    [[ $# -ne 2 ]] && return 255;
+    [[ $# -ne 1 ]] && return 255;
     [[ ! -f ${1}.bwa ]] && return 1;
     [[ ! -f ${1}.pac ]] && return 1;
     [[ ! -f ${1}.ann ]] && return 1;

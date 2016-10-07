@@ -189,8 +189,13 @@ EOF
     # build gmap index if not exist
     declare gmapindex=${GMAP_INDEX_DIR}/${genome}
     if ! gmapIndexCheck ${GMAP_INDEX_DIR} $genome; then
+        echo2 "cannot find gmap index ${gmapindex}" warning
+        if ! dirWritable ${GMAP_INDEX_DIR}; then
+            GMAP_INDEX_DIR=annotation/
+            gmapindex=${GMAP_INDEX_DIR}/${genome}
+        fi
         if [[ ! -f jobs/${genome}.gmapbuild.sh ]]; then
-            echo2 "cannot find gmap index ${gmapindex}, submiting a job to generate it" warning
+            echo2 "Submiting a job to generate gmap index in ${GMAP_INDEX_DIR}" warning
             cat > jobs/${genome}.gmapbuild.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 mkdir -p ${GMAP_INDEX_DIR}/${genome} \
@@ -199,7 +204,7 @@ mkdir -p ${GMAP_INDEX_DIR}/${genome} \
 EOF
             declare gmap_build_jobid=$(${SUBMIT_CMD} -o log -e log -N job_${genome}.gmapbuild < jobs/${genome}.gmapbuild.sh | cut -f3 -d' ')
         else # already jobs/${genome}.gmapbuild.sh file
-            echo2 "cannot find gmap index ${gmapindex}, but looks like a job has been submit to generate it" warning
+            echo2 "Looks like a job has been submit to generate bwa index" warning
         fi
     else
         echo2 "Use existing gmap index ${gmapindex}"
