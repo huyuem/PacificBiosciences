@@ -465,13 +465,13 @@ declare -i size_dis_jobid=$(${SUBMIT_CMD} -o log -e log -N job_size -hold_jid ${
 
 echo2 "Submit job to run quantification"
 # depends on 
-#   $gmap_job_ids for bed files
+#   $bwa_jobid for bed files
 cat > jobs/bedtools_quantification.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 bash ${MYBIN}/count_gene_from_bed.sh jobs/${JOBNAME}.sh ${genebed} ${genomebedfiles[@]}
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-declare -i quantification_jobid=$(${SUBMIT_CMD} -o log -e log -N job_quantification -hold_jid ${gmap_job_ids} < jobs/bedtools_quantification.sh | cut -f3 -d' ')
+declare -i quantification_jobid=$(${SUBMIT_CMD} -o log -e log -N job_quantification -hold_jid ${bwa_jobid} < jobs/bedtools_quantification.sh | cut -f3 -d' ')
 
 echo2 "Generate TSS and TES plot"
 # depends on 
