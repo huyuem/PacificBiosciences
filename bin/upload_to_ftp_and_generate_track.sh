@@ -16,9 +16,9 @@ if [[ $# -lt 4 ]]; then
 fi
 
 # begin
-declare -r username=${1}
-declare -r password=${2}
-declare -r ftpname=${3}
+declare -r username=${2}
+declare -r password=${3}
+declare -r ftpname=${1}
 declare -r dirname=${4}
 shift;shift;shift;shift;
 
