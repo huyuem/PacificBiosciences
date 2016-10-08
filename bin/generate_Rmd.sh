@@ -90,7 +90,7 @@ num_treatment = length(levels(as.factor(flnc_sizes\$treatment)))
 ggplot(flnc_sizes) + 
     geom_line(aes(size, y=..density.., colour=treatment), lwd = 1.15, stat="density") +
     scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
-    facet_grid(sizebin ~ tissue) +
+    facet_grid(sizebin ~ tissue, scales="free_y") +
     xlim(0, median(flnc_sizes\$size) * 3) +
     xlab('length(nt) of flnc') +
     ylab('density') +
@@ -98,7 +98,7 @@ ggplot(flnc_sizes) +
 ggplot(flnc_sizes) + 
     geom_freqpoly(aes(size, y=..count.., colour=treatment), lwd = 1.15, binwidth = 5) +
     scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
-    facet_grid(sizebin ~ tissue) +
+    facet_grid(sizebin ~ tissue, scales="free_y") +
     xlim(0, median(flnc_sizes\$size) * 3) +
     xlab(paste('length(nt) of flnc, bin width: ', 5)) +
     ylab('count') +

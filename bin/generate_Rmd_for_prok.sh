@@ -90,7 +90,7 @@ num_treatment = length(levels(as.factor(flnc_sizes\$treatment)))
 ggplot(flnc_sizes) + 
     geom_line(aes(size, y=..density.., colour=treatment), lwd = 1.15, stat="density") +
     scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
-    facet_grid(sizebin ~ tissue) +
+    facet_grid(sizebin ~ tissue, scales="free_y") +
     xlim(0, median(flnc_sizes\$size) * 3) +
     xlab('length(nt) of flnc') +
     ylab('density') +
@@ -98,7 +98,7 @@ ggplot(flnc_sizes) +
 ggplot(flnc_sizes) + 
     geom_freqpoly(aes(size, y=..count.., colour=treatment), lwd = 1.15, binwidth = 5) +
     scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
-    facet_grid(sizebin ~ tissue) +
+    facet_grid(sizebin ~ tissue, scales="free_y") +
     xlim(0, median(flnc_sizes\$size) * 3) +
     xlab(paste('length(nt) of flnc, bin width: ', 5)) +
     ylab('count') +
@@ -188,36 +188,6 @@ if(Samplesize > 1) {
     datacor = cor(as.matrix(gene_counts3), use="complete.obs", method="pearson")
     corrplot(datacor, order="hclust", tl.col="black", tl.srt=45, method="number", mar=c(0,0,2,0), title="Correlation of gene counts")
 }
-\`\`\`
-
-#### mRNA level
-\`\`\`{r mRNA_quantification}
-transcripts_counts = read_tsv("${PWD}/table/mRNA.counts.melted.tsv", T)
-num_tissues = length(levels(as.factor(transcripts_counts\$tissue)))
-num_treatment = length(levels(as.factor(transcripts_counts\$treatment)))
-ggplot(transcripts_counts) + 
-    geom_boxplot(aes(x = treatment, y = counts, fill=tissue)) + 
-    scale_fill_brewer(palette=(ifelse(num_tissues < 9, "Set1", "Set3"))) +
-    scale_y_log10() + 
-    facet_grid(size_bin ~ .) +
-    xlab('') +
-    ylab('count (log10)') +
-    ggtitle("boxplot for abundance") +
-    theme_bw()
-
-ggplot(transcripts_counts) + 
-    geom_line(aes(counts, y=..count.., colour=treatment), lwd = 1.25, stat="density") +
-    scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
-    facet_grid(size_bin ~ tissue) +
-    xlab('normalized abundance') +
-    ylab('counts') +
-    xlim(0, 10) +
-    ggtitle("density plot for normalized counts") +
-    theme_bw()
-\`\`\`
-
-\`\`\`{r gene_scatter_plot}
-
 \`\`\`
 
 EOF
