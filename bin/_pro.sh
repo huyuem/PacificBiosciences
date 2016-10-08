@@ -160,6 +160,7 @@ declare -a flncfiles=()
 declare -a flncsizefiles=()
 declare -a coveragefiles=()
 declare -a genomebamfiles=()
+declare -a genomebedfiles=()
 declare -a bigWigForwardFiles=()
 declare -a bigWigReverseFiles=()
 declare -a transcriptomerefs=()
@@ -443,6 +444,7 @@ EOF
     flncsizefiles+=("table/${samplename}.isoseq_flnc.trima.sizes")
     coveragefiles+=(" table/${samplename}.isoseq_flnc.trima.coverage.tsv")
     genomebamfiles+=("bam/${samplename}.isoseq_flnc.trima.${genome}.sorted.bam")
+    genomebedfiles+=("bed/${samplename}.isoseq_flnc.trima.${genome}.sorted.bed")
     bigWigForwardFiles+=("bigWig/${samplename}.isoseq_flnc.trima.${genome}.Forward.bw")
     bigWigReverseFiles+=("bigWig/${samplename}.isoseq_flnc.trima.${genome}.Reverse.bw")
 
@@ -460,6 +462,16 @@ fi
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
 declare -i size_dis_jobid=$(${SUBMIT_CMD} -o log -e log -N job_size -hold_jid ${bwa_job_ids} < jobs/size.sh | cut -f3 -d' ')
+
+echo2 "Submit job to run quantification"
+# depends on 
+#   $gmap_job_ids for bed files
+cat > jobs/bedtools_quantification.sh << EOF
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+bash ${MYBIN}/count_gene_from_bed.sh jobs/${JOBNAME}.sh ${genebed} ${genomebedfiles[@]}
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+EOF
+declare -i quantification_jobid=$(${SUBMIT_CMD} -o log -e log -N job_quantification -hold_jid ${gmap_job_ids} < jobs/bedtools_quantification.sh | cut -f3 -d' ')
 
 echo2 "Generate TSS and TES plot"
 # depends on 
@@ -517,7 +529,7 @@ declare -i coverage_report=$(${SUBMIT_CMD} -o log -e log -N job_coverage -hold_j
 echo2 "Generate final report"
 # depends on 
 #   ${size_dis_jobid} for length distribution
-#   ${gffcompare_jobid} for quantification 
+#   ${quantification_jobid} for quantification 
 #   ${tss_tes_report} for png files
 # generate ${final_html_report}
 cat > jobs/html_report.sh << EOF
@@ -525,7 +537,7 @@ cat > jobs/html_report.sh << EOF
 bash ${MYBIN}/generate_Rmd_for_prok.sh
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
-declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${size_dis_jobid},${tss_tes_report},${coverage_report} < jobs/html_report.sh | cut -f3 -d' ')
+declare -i final_html_report=$(${SUBMIT_CMD} -o log -e log -N job_generate_html -hold_jid ${quantification_jobid},${size_dis_jobid},${tss_tes_report},${coverage_report} < jobs/html_report.sh | cut -f3 -d' ')
 
 # getting ready to finish
 declare last_job=${final_html_report}

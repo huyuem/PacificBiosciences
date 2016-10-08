@@ -130,65 +130,65 @@ ggplot(coverages) +
 ![Watson strand](${PWD}/pdf/TES.watson.png)
 ![Crick strand](${PWD}/pdf/TES.crick.png)
 
-# ### Quantification
-# Check the other HTML file for interactive scatter-plots.
+### Quantification
+Check the other HTML file for interactive scatter-plots.
 
-# #### Gene level
-# \`\`\`{r gene_quantification}
-# gene_counts = read_tsv("${PWD}/table/gene.counts.melted.tsv", T)
-# num_tissues = length(levels(as.factor(gene_counts\$tissue)))
-# num_treatment = length(levels(as.factor(gene_counts\$treatment)))
-# ggplot(gene_counts) + 
-#     geom_boxplot(aes(x = treatment, y = counts, fill=tissue)) + 
-#     scale_fill_brewer(palette=(ifelse(num_tissues < 9, "Set1", "Set3"))) +
-#     scale_y_log10() + 
-#     facet_grid(size_bin ~ .) +
-#     xlab('') +
-#     ylab('count (log10)') +
-#     ggtitle("boxplot for abundance") +
-#     theme_bw()
-# ggplot(gene_counts) + 
-#     geom_line(aes(counts, y=..count.., colour=treatment), lwd = 1.25, stat="density") +
-#     scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
-#     facet_grid(size_bin ~ tissue) +
-#     xlab('normalized abundance') +
-#     ylab('counts') +
-#     xlim(0, 10) +
-#     ggtitle("density plot for normalized counts") +
-#     theme_bw()
+#### Gene level
+\`\`\`{r gene_quantification}
+gene_counts = read_tsv("${PWD}/table/gene.counts.melted.tsv", T)
+num_tissues = length(levels(as.factor(gene_counts\$tissue)))
+num_treatment = length(levels(as.factor(gene_counts\$treatment)))
+ggplot(gene_counts) + 
+    geom_boxplot(aes(x = treatment, y = counts, fill=tissue)) + 
+    scale_fill_brewer(palette=(ifelse(num_tissues < 9, "Set1", "Set3"))) +
+    scale_y_log10() + 
+    facet_grid(size_bin ~ .) +
+    xlab('') +
+    ylab('count (log10)') +
+    ggtitle("boxplot for abundance") +
+    theme_bw()
+ggplot(gene_counts) + 
+    geom_line(aes(counts, y=..count.., colour=treatment), lwd = 1.25, stat="density") +
+    scale_color_brewer(palette=(ifelse(num_treatment < 9, "Set1", "Set3"))) +
+    facet_grid(size_bin ~ tissue) +
+    xlab('normalized abundance') +
+    ylab('counts') +
+    xlim(0, 10) +
+    ggtitle("density plot for normalized counts") +
+    theme_bw()
 
-# # scatter plot
-# gene_counts1 = gene_counts %>% spread(treatment, counts, fill=0)
-# Names = colnames(gene_counts1)[-c(1,2,3,4)] # skip genome, tissue, size_bin, name
-# Samplesize = length(Names)
-# # only run pair wise scatter plot when the sample size is less than 5
-# if (Samplesize > 1 && Samplesize <= 4) {
-#     AllPairs = combn(Names, 2)
-#     for(p in 1:ncol(AllPairs)) {
-#         X = AllPairs[1, p]
-#         Y = AllPairs[2, p]
-#         g = ggplot(gene_counts1) +
-#             geom_point(aes(x = gene_counts1[,X], y = gene_counts1[,Y], size = size_bin, col = tissue)) +
-#             scale_color_brewer(palette=(ifelse(num_tissues < 9, "Set1", "Set3"))) +
-#             xlab(X) +
-#             ylab(Y) + 
-#             ggtitle(paste(X, "VS", Y, "scatter plot")) +
-#             geom_abline(slope = 1, intercept = 0, lty = 2) +
-#             geom_hline(yintercept = 0, lty = 1) +
-#             geom_vline(xintercept = 0, lty = 1) +
-#             theme_bw()
-#         print(g)
-#     }
-# } 
+# scatter plot
+gene_counts1 = gene_counts %>% spread(treatment, counts, fill=0)
+Names = colnames(gene_counts1)[-c(1,2,3,4)] # skip genome, tissue, size_bin, name
+Samplesize = length(Names)
+# only run pair wise scatter plot when the sample size is less than 5
+if (Samplesize > 1 && Samplesize <= 4) {
+    AllPairs = combn(Names, 2)
+    for(p in 1:ncol(AllPairs)) {
+        X = AllPairs[1, p]
+        Y = AllPairs[2, p]
+        g = ggplot(gene_counts1) +
+            geom_point(aes(x = gene_counts1[,X], y = gene_counts1[,Y], size = size_bin, col = tissue)) +
+            scale_color_brewer(palette=(ifelse(num_tissues < 9, "Set1", "Set3"))) +
+            xlab(X) +
+            ylab(Y) + 
+            ggtitle(paste(X, "VS", Y, "scatter plot")) +
+            geom_abline(slope = 1, intercept = 0, lty = 2) +
+            geom_hline(yintercept = 0, lty = 1) +
+            geom_vline(xintercept = 0, lty = 1) +
+            theme_bw()
+        print(g)
+    }
+} 
 
-# # corrplot
-# if(Samplesize > 1) {
-#     gene_counts2 = gene_counts1[,-c(1,2,3,4)]
-#     gene_counts3 = gene_counts2[apply(gene_counts2,1,sum) > ncol(gene_counts2), ] # average count has to be at least 1
-#     datacor = cor(as.matrix(gene_counts3), use="complete.obs", method="pearson")
-#     corrplot(datacor, order="hclust", tl.col="black", tl.srt=45, method="number", mar=c(0,0,2,0), title="Correlation of gene counts")
-# }
-# \`\`\`
+# corrplot
+if(Samplesize > 1) {
+    gene_counts2 = gene_counts1[,-c(1,2,3,4)]
+    gene_counts3 = gene_counts2[apply(gene_counts2,1,sum) > ncol(gene_counts2), ] # average count has to be at least 1
+    datacor = cor(as.matrix(gene_counts3), use="complete.obs", method="pearson")
+    corrplot(datacor, order="hclust", tl.col="black", tl.srt=45, method="number", mar=c(0,0,2,0), title="Correlation of gene counts")
+}
+\`\`\`
 
 EOF
 # End of generating the Rmd file
