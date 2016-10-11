@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.2.4.161011
+declare -r MODULE_VERSION=0.2.5.161011
 
 #########
 # Const #
@@ -130,7 +130,7 @@ while getopts "hvc:o:t:J:E:DA:F:U:P:" OPTION; do
     esac
 done
 [[ -z ${ConfigCsvFile} ]] && echo2 "You have to provide a sample csv file with -c option" error
-[[ -z ${JobName} ]] && declare -x JobName="$(date +%Y_%m_%d_%H_%M_S)"
+[[ -z ${JobName} ]] && declare -x JobName="$(date +%Y_%m_%d_%H_%M_%S)_$(whoami)"
 
 [[ -z $OutputDir ]] && OutputDir=${RANDOM}.out
 declare OutDirFull=$(readlink -f ${OutputDir})
