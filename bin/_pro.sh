@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=Prokaryotic
-declare -r MODULE_VERSION=0.0.2.161006
+declare -r MODULE_VERSION=0.0.3.1610011
 
 #########
 # Const #
@@ -548,7 +548,6 @@ if [[ ! -z ${FTPAddress} \
    cat > jobs/ftp_upload_and_track.sh << EOF 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 ( cd bam;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JobName *bam 1> ../track/alignments.UCSC.genome_browser.tracks )
-( cd bed;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JobName *bb  1> ../track/assembly.UCSC.genome_browser.tracks )
 ( cd bigWig; bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JobName *bw  1> ../track/signal.UCSC.genome_browser.tracks )
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
