@@ -547,9 +547,9 @@ if [[ ! -z ${FTPAddress} \
    && ! -z ${FTPPassword} ]] ; then
    cat > jobs/ftp_upload_and_track.sh << EOF 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-( cd bam;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JOBNAME *bam 1> ../track/UCSC.genome_browser.tracks)
-( cd bed;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JOBNAME *bb  1> ../track/UCSC.genome_browser.tracks)
-( cd bigWig; bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JOBNAME *bw  1> ../track/UCSC.genome_browser.tracks)
+( cd bam;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JobName *bam 1> ../track/alignments.UCSC.genome_browser.tracks )
+( cd bed;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JobName *bb  1> ../track/assembly.UCSC.genome_browser.tracks )
+( cd bigWig; bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JobName *bw  1> ../track/signal.UCSC.genome_browser.tracks )
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
     declare -i ftpjob=$(${SUBMIT_CMD} -o log -e log -N job_ftp -hold_jid ${last_job} < jobs/ftp_upload_and_track.sh | cut -f3 -d' ')
