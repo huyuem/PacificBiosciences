@@ -41,7 +41,7 @@
 # Basic #
 #########
 declare -r MODULE_NAME=All
-declare -r MODULE_VERSION=0.2.3.161011
+declare -r MODULE_VERSION=0.2.4.161011
 
 #########
 # Const #
@@ -130,7 +130,7 @@ while getopts "hvc:o:t:J:E:DA:F:U:P:" OPTION; do
     esac
 done
 [[ -z ${ConfigCsvFile} ]] && echo2 "You have to provide a sample csv file with -c option" error
-[[ -z ${JobName} ]] && declare -x JobName="$(date)"
+[[ -z ${JobName} ]] && declare -x JobName="$(date +%Y_%m_%d_%H_%M_S)"
 
 [[ -z $OutputDir ]] && OutputDir=${RANDOM}.out
 declare OutDirFull=$(readlink -f ${OutputDir})
@@ -146,10 +146,10 @@ for program in "${REQUIRED_PROGRAMS[@]}"; do binCheck $program; done
 # Begin #
 #########
 echo2 "Parse sample csv file"
-declare JOBNAME=$(md5sum ${ConfigCsvFile} | cut -d' ' -f1)
-python ${MYBIN}/parse_csv.py ${ConfigCsvFile} > jobs/${JOBNAME}.sh \
+declare JOBID=$(md5sum ${ConfigCsvFile} | cut -d' ' -f1)
+python ${MYBIN}/parse_csv.py ${ConfigCsvFile} > jobs/${JOBID}.sh \
     || echo2 "Error parsing sample csv file" error
-source jobs/${JOBNAME}.sh
+source jobs/${JOBID}.sh
 
 echo2 "Submit jobs for CCS and Classify"
 declare gmap_job_ids=""
@@ -521,7 +521,7 @@ echo2 "Submit job to run gffcompare"
 # generate $gffcompare_jobid
 cat > jobs/gffcompare.sh << EOF
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-bash ${MYBIN}/count_gene_from_gff.sh jobs/${JOBNAME}.sh ${genegff} ${genomegtffiles[@]}
+bash ${MYBIN}/count_gene_from_gff.sh jobs/${JOBID}.sh ${genegff} ${genomegtffiles[@]}
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
 declare -i gffcompare_jobid=$(${SUBMIT_CMD} -o log -e log -N job_quantification -hold_jid ${gmap_job_ids} < jobs/gffcompare.sh | cut -f3 -d' ')
@@ -671,9 +671,9 @@ if [[ ! -z ${FTPAddress} \
    && ! -z ${FTPPassword} ]] ; then
    cat > jobs/ftp_upload_and_track.sh << EOF 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-( cd bam;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JobName *bam 1> ../track/alignments.UCSC.genome_browser.tracks )
-( cd bed;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JobName *bb  1> ../track/assembly.UCSC.genome_browser.tracks )
-( cd bigWig; bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword $JobName *bw  1> ../track/signal.UCSC.genome_browser.tracks )
+( cd bam;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword "$JobName" *bam 1> ../track/alignments.UCSC.genome_browser.tracks )
+( cd bed;    bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword "$JobName" *bb  1> ../track/assembly.UCSC.genome_browser.tracks )
+( cd bigWig; bash ${MYBIN}/upload_to_ftp_and_generate_track.sh $FTPAddress $FTPUsername $FTPPassword "$JobName" *bw  1> ../track/signal.UCSC.genome_browser.tracks )
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 EOF
     declare -i ftpjob=$(${SUBMIT_CMD} -o log -e log -N job_ftp -hold_jid ${last_job} < jobs/ftp_upload_and_track.sh | cut -f3 -d' ')
