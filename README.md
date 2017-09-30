@@ -281,3 +281,8 @@ _Correlation matrix between different samples_<br>
 - `alignments.UCSC.genome_browser.tracks` stores the paths to the `bam` files on ftp (for flnc read alignments) 
 - `signal.UCSC.genome_browser.tracks` stores the paths to the `bigWig` files on ftp (for genome-oriented signal of flnc reads)
 - `assembly.UCSC.genome_browser.tracks` stores the paths to the `bigBed` files on ftp (for transcripts assembled in the `cluster` pipeline). This file doesn't exist for prokaryotic genomes since `cluster` module is not run.
+
+
+DISCLAIMER
+----------
+THIS WEBSITE AND CONTENT AND ALL SITE-RELATED SERVICES, INCLUDING ANY DATA, ARE PROVIDED "AS IS," WITH ALL FAULTS, WITH NO REPRESENTATIONS OR WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, ANY WARRANTIES OF MERCHANTABILITY, SATISFACTORY QUALITY, NON-INFRINGEMENT OR FITNESS FOR A PARTICULAR PURPOSE. YOU ASSUME TOTAL RESPONSIBILITY AND RISK FOR YOUR USE OF THIS SITE, ALL SITE-RELATED SERVICES, AND ANY THIRD PARTY WEBSITES OR APPLICATIONS. NO ORAL OR WRITTEN INFORMATION OR ADVICE SHALL CREATE A WARRANTY OF ANY KIND. ANY REFERENCES TO SPECIFIC PRODUCTS OR SERVICES ON THE WEBSITES DO NOT CONSTITUTE OR IMPLY A RECOMMENDATION OR ENDORSEMENT BY PACIFIC BIOSCIENCES.
